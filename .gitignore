@@ -1,3 +1,6 @@
 /target/
 Cargo.lock
 
+# Local run logs and captured output (do not commit)
+logs/
+
