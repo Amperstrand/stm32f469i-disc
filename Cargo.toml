@@ -35,9 +35,15 @@ otm8009a = "0.1"
 version = "1.0"
 
 [dependencies.stm32f4xx-hal]
+git = "https://github.com/Amperstrand/stm32f4xx-hal"
+rev = "583a8f2d8417f0e12decad93aca169f56d34c0a3"
 default-features = false
-features = ["stm32f469", "stm32-fmc", "dsihost", "defmt"]
-version = "0.23"
+features = ["stm32f469", "stm32-fmc", "dsihost", "defmt", "sdio-host"]
+
+[dependencies.embedded-hal-02]
+package = "embedded-hal"
+version = "0.2"
+features = ["unproven"]
 
 [dev-dependencies]
 defmt = "1.0"
@@ -47,6 +53,12 @@ defmt-rtt = "1.0"
 fmc_sdram_test = ["defmt"]
 display_dsi_lcd = ["defmt"]
 gpio_hal_blinky = ["defmt"]
+sdio-speed-test = []
+sweep-1mhz = []
+sweep-4mhz = []
+sweep-8mhz = []
+sweep-12mhz = []
+sweep-24mhz = []
 
 [profile.dev]
 opt-level = 3

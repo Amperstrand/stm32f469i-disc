@@ -8,4 +8,5 @@ pub use crate::hal::pac::Peripherals;
 
 pub mod led;
 
+pub mod sdio;
 pub mod sdram;
