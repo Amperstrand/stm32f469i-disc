@@ -119,7 +119,7 @@ where
             Ok(()) => break,
             Err(e) => {
                 #[cfg(feature = "defmt")]
-                defmt::warn!("sdio: init failed - {:?}", e);
+                defmt::warn!("sdio: init failed");
                 if retries == 0 {
                     return Err(e);
                 }
