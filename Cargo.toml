@@ -44,7 +44,7 @@ optional = true
 
 [dependencies.stm32f4xx-hal]
 git = "https://github.com/Amperstrand/stm32f4xx-hal"
-rev = "4defe541ba408af40b2f496915bd1d53ce8b487e"
+rev = "789e5e86f5d93ae80b2f50e861c3c76980733bca"
 default-features = false
 features = ["stm32f469", "stm32-fmc", "dsihost", "defmt", "sdio-host", "usb_fs"]
 
