@@ -539,9 +539,18 @@ impl DoubleFramebuffer {
     /// After this call the current back buffer becomes the front buffer
     /// and vice versa. The LTDC hardware will atomically switch the
     /// framebuffer address during vblank, preventing tearing.
+    ///
+    /// Uses `DisplayController::swap_buffers()` which waits for any
+    /// pending VBlank reload to complete before writing the new address,
+    /// preventing the race condition that can interfere with USB DMA.
     pub fn swap(&mut self) {
-        self.display_ctrl
-            .set_layer_buffer_address(Layer::L1, self.back.as_ptr() as u32);
+        if let Err(e) = self
+            .display_ctrl
+            .swap_buffers(Layer::L1, self.back.as_ptr() as u32)
+        {
+            defmt::warn!("swap failed: {:?}", e);
+            return;
+        }
         core::mem::swap(&mut self.front, &mut self.back);
     }
 
