@@ -64,6 +64,7 @@ default = ["defmt"]
 defmt = ["dep:defmt", "stm32f4xx-hal/defmt"]
 framebuffer = ["stm32f4xx-hal/framebuffer", "embedded-graphics-core"]
 usb_fs = ["stm32f4xx-hal/usb_fs"]
+rng = ["stm32f4xx-hal/rng"]
 # Optional: enable to build/run sdio_speed_sweep (run sparingly; may stress SD card)
 sdio-speed-test = []
 # One of these = run only that frequency (for one-freq-per-run capture). None = full sweep.
