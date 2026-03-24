@@ -459,3 +459,109 @@ pub fn init_display_pipeline(
 
     (LtdcFramebuffer::new(buffer, WIDTH, HEIGHT), remainders)
 }
+
+/// Tear-free double framebuffer for the STM32F469I-DISCO display.
+///
+/// Holds two SDRAM-backed framebuffers and a `DisplayController` reference.
+/// Drawing goes into the **back buffer**; calling [`swap()`](Self::swap) queues
+/// an atomic buffer flip at the next vertical blanking period.
+///
+/// # Example
+///
+/// ```ignore
+/// let mut dbl = lcd::DoubleFramebuffer::new(
+///     &mut sdram, display_ctrl, BoardHint::Unknown, PixelFormat::RGB565,
+/// );
+/// // draw into back buffer
+/// dbl.back_buffer().fill(0x0000);
+/// dbl.swap();
+/// ```
+pub struct DoubleFramebuffer {
+    front: &'static mut [u16],
+    back: &'static mut [u16],
+    display_ctrl: DisplayController<u16>,
+}
+
+impl DoubleFramebuffer {
+    /// Create a new double-buffered display pipeline.
+    ///
+    /// Allocates two framebuffers from SDRAM via `subslice_mut`, configures
+    /// LTDC layer 1 with the front buffer, and enables the layer.
+    ///
+    /// The `sdram` instance is borrowed (not consumed) so the caller can
+    /// continue allocating from it (e.g. for the heap).
+    pub fn new(
+        sdram: &mut sdram::Sdram,
+        mut display_ctrl: DisplayController<u16>,
+        _board_hint: BoardHint,
+        pixel_format: PixelFormat,
+    ) -> Self {
+        let fb1: &'static mut [u16] = sdram.subslice_mut(0, FB_SIZE);
+        let fb2: &'static mut [u16] = sdram.subslice_mut(FB_SIZE * 2, FB_SIZE);
+
+        for px in fb1.iter_mut() {
+            *px = 0;
+        }
+        for px in fb2.iter_mut() {
+            *px = 0;
+        }
+
+        let fb1_addr = fb1.as_ptr() as u32;
+        display_ctrl.config_layer(Layer::L1, fb1, pixel_format);
+        display_ctrl.enable_layer(Layer::L1);
+        display_ctrl.reload();
+
+        // SAFETY: config_layer() takes ownership of the buffer and stores it
+        // internally. We reconstruct a &'static mut from the known address
+        // because the HAL's layer_buffer_mut() ties the borrow to &mut self,
+        // preventing us from moving display_ctrl into Self. The buffer lives
+        // for 'static in SDRAM and we are the sole owner.
+        let fb1: &'static mut [u16] =
+            unsafe { &mut *core::ptr::slice_from_raw_parts_mut(fb1_addr as *mut u16, FB_SIZE) };
+
+        Self {
+            front: fb1,
+            back: fb2,
+            display_ctrl,
+        }
+    }
+
+    /// Get mutable access to the back (draw) buffer.
+    ///
+    /// This buffer is not being scanned out by the display controller,
+    /// so writes are safe from tearing.
+    pub fn back_buffer(&mut self) -> &mut [u16] {
+        &mut self.back
+    }
+
+    /// Queue a buffer swap at the next vertical blanking period.
+    ///
+    /// After this call the current back buffer becomes the front buffer
+    /// and vice versa. The LTDC hardware will atomically switch the
+    /// framebuffer address during vblank, preventing tearing.
+    pub fn swap(&mut self) {
+        self.display_ctrl
+            .set_layer_buffer_address(Layer::L1, self.back.as_ptr() as u32);
+        core::mem::swap(&mut self.front, &mut self.back);
+    }
+
+    /// Get mutable access to the underlying `DisplayController`.
+    pub fn display_controller(&mut self) -> &mut DisplayController<u16> {
+        &mut self.display_ctrl
+    }
+
+    /// Get the current front (displayed) buffer.
+    ///
+    /// Writing to this buffer while it is being displayed will cause tearing.
+    pub fn front_buffer(&mut self) -> &mut [u16] {
+        &mut self.front
+    }
+
+    /// Consume the double framebuffer and return the currently displayed buffer.
+    ///
+    /// The `DisplayController` is dropped. Use this to downgrade to a single
+    /// `LtdcFramebuffer` after double-buffered animation is complete.
+    pub fn into_front_buffer(mut self) -> &'static mut [u16] {
+        self.front
+    }
+}
