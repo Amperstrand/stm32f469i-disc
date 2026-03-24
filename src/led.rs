@@ -35,11 +35,7 @@ pub struct Leds {
 }
 
 impl Leds {
-    pub fn new(
-        gpiod: gpiod::Parts,
-        gpiog: gpiog::Parts,
-        gpiok: gpiok::Parts,
-    ) -> Self {
+    pub fn new(gpiod: gpiod::Parts, gpiog: gpiog::Parts, gpiok: gpiok::Parts) -> Self {
         let green = gpiog.pg6.into_push_pull_output();
         let orange = gpiod.pd4.into_push_pull_output();
         let red = gpiod.pd5.into_push_pull_output();

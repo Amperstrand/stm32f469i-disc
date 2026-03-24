@@ -10,6 +10,22 @@ use stm32f4xx_hal::rcc::Clocks;
 // Re-export FMC alternate pin types for the sdram_pins! macro
 #[doc(hidden)]
 pub use crate::hal::gpio::alt::fmc as alt;
+/// Construct the pin tuple for the FMC SDRAM controller.
+///
+/// Takes GPIO port Parts structs and extracts the pins needed for the IS42S32400F-6BL
+/// SDRAM chip on the STM32F469I-DISCO board.
+///
+/// **WARNING:** This macro consumes the entire port structs. Pins that are NOT used
+/// by SDRAM (such as PC1 for touch interrupt, PC8-PC12 for SDIO, PD2 for SDIO CMD)
+/// will be permanently lost. Extract them BEFORE calling this macro, or use
+/// [`split_sdram_pins()`] which preserves these pins via [`SdramRemainders`].
+///
+/// Example (extracting PC1 for touch):
+/// ```no_run
+/// let gpioc = dp.GPIOC.split(&mut rcc);
+/// let ts_int = gpioc.pc1.into_pull_down_input(); // extract BEFORE macro
+/// let sdram = Sdram::new(dp.FMC, sdram_pins!(gpioc, ...), ...);
+/// ```
 #[macro_export]
 macro_rules! sdram_pins {
     ($c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr) => {
@@ -81,10 +97,10 @@ macro_rules! sdram_pins {
 pub use sdram_pins;
 
 /// GPIO pins remaining after SDRAM initialization that VLS needs.
-/// 
+///
 /// These pins are NOT used by the SDRAM interface and are returned for use by
 /// the application (touch interrupt, SDIO).
-/// 
+///
 /// Note: PH7 (LCD reset) is returned separately from `split_sdram_pins` since it's
 /// consumed during display initialization.
 pub struct SdramRemainders {
@@ -101,13 +117,13 @@ pub struct SdramRemainders {
 }
 
 /// Split GPIO ports into SDRAM pins and remaining pins for VLS.
-/// 
+///
 /// This is the function equivalent of the `sdram_pins!` macro, with the addition
 /// of returning the remaining pins that VLS needs for touch, SDIO, and LCD reset.
-/// 
+///
 /// # Arguments
 /// * GPIO port parts from `p.GPIOX.split(&mut rcc)`
-/// 
+///
 /// # Returns
 /// * Tuple of SDRAM pins (compatible with `Sdram::new()`)
 /// * `SdramRemainders` with pins not used by SDRAM
@@ -124,21 +140,66 @@ pub fn split_sdram_pins(
     // SDRAM pins tuple (same as sdram_pins! macro output)
     (
         // Address pins
-        alt::A0, alt::A1, alt::A2, alt::A3, alt::A4, alt::A5,
-        alt::A6, alt::A7, alt::A8, alt::A9, alt::A10, alt::A11,
+        alt::A0,
+        alt::A1,
+        alt::A2,
+        alt::A3,
+        alt::A4,
+        alt::A5,
+        alt::A6,
+        alt::A7,
+        alt::A8,
+        alt::A9,
+        alt::A10,
+        alt::A11,
         // Bank pins
-        alt::Ba0, alt::Ba1,
+        alt::Ba0,
+        alt::Ba1,
         // Data pins
-        alt::D0, alt::D1, alt::D2, alt::D3, alt::D4, alt::D5,
-        alt::D6, alt::D7, alt::D8, alt::D9, alt::D10, alt::D11,
-        alt::D12, alt::D13, alt::D14, alt::D15, alt::D16, alt::D17,
-        alt::D18, alt::D19, alt::D20, alt::D21, alt::D22, alt::D23,
-        alt::D24, alt::D25, alt::D26, alt::D27, alt::D28, alt::D29,
-        alt::D30, alt::D31,
+        alt::D0,
+        alt::D1,
+        alt::D2,
+        alt::D3,
+        alt::D4,
+        alt::D5,
+        alt::D6,
+        alt::D7,
+        alt::D8,
+        alt::D9,
+        alt::D10,
+        alt::D11,
+        alt::D12,
+        alt::D13,
+        alt::D14,
+        alt::D15,
+        alt::D16,
+        alt::D17,
+        alt::D18,
+        alt::D19,
+        alt::D20,
+        alt::D21,
+        alt::D22,
+        alt::D23,
+        alt::D24,
+        alt::D25,
+        alt::D26,
+        alt::D27,
+        alt::D28,
+        alt::D29,
+        alt::D30,
+        alt::D31,
         // NBL pins
-        alt::Nbl0, alt::Nbl1, alt::Nbl2, alt::Nbl3,
+        alt::Nbl0,
+        alt::Nbl1,
+        alt::Nbl2,
+        alt::Nbl3,
         // Control pins
-        alt::Sdcke0, alt::Sdclk, alt::Sdncas, alt::Sdne0, alt::Sdnras, alt::Sdnwe,
+        alt::Sdcke0,
+        alt::Sdclk,
+        alt::Sdncas,
+        alt::Sdne0,
+        alt::Sdnras,
+        alt::Sdnwe,
     ),
     // Remaining pins for VLS
     SdramRemainders,
@@ -156,7 +217,6 @@ pub fn split_sdram_pins(
         pd2: gpiod.pd2,
     };
     let ph7 = gpioh.ph7;
-
 
     // Extract SDRAM pins (same logic as sdram_pins! macro)
     let sdram_pins = (
@@ -230,17 +290,17 @@ pub fn split_sdram_pins(
 pub const SDRAM_SIZE_BYTES: usize = 16 * 1024 * 1024;
 
 /// SDRAM memory wrapper providing typed access to the 16MB SDRAM on F469 Discovery.
-/// 
+///
 /// # Memory Layout
-/// 
+///
 /// The F469 Discovery has 16MB of SDRAM mapped at address 0xC0000000.
 /// This struct provides safe(r) access to this memory region with typed slices.
-/// 
+///
 /// # Usage
-/// 
+///
 /// ```ignore
 /// let mut sdram = Sdram::new(fmc, sdram_pins!(...), &clocks, &mut delay);
-/// 
+///
 /// // Get a typed slice for a framebuffer (e.g., 480x800 RGB565 = 768,000 u16s)
 /// let fb_buffer: &'static mut [u16] = sdram.as_slice_mut();
 /// let fb = LtdcFramebuffer::new(fb_buffer, 480, 800);
@@ -254,7 +314,7 @@ pub struct Sdram {
 
 impl Sdram {
     /// Initialize SDRAM with the given pins.
-    /// 
+    ///
     /// Returns a new Sdram wrapper after initializing the memory controller.
     pub fn new<BANK: SdramPinSet, ADDR: AddressPinSet, PINS: PinsSdram<BANK, ADDR>>(
         fmc: FMC,
@@ -269,43 +329,43 @@ impl Sdram {
             words: SDRAM_SIZE_BYTES / core::mem::size_of::<u32>(),
         }
     }
-    
+
     /// Get the raw base pointer as u32.
-    /// 
+    ///
     /// Use this for low-level access when you need the original pointer type.
     pub fn as_mut_ptr(&self) -> *mut u32 {
         self.mem
     }
-    
+
     /// Get the base address of the SDRAM.
     pub fn base_address(&self) -> usize {
         self.mem as usize
     }
-    
+
     /// Get the total size in bytes.
     pub fn size_bytes(&self) -> usize {
         SDRAM_SIZE_BYTES
     }
-    
+
     /// Get a typed mutable slice of the entire SDRAM region.
-    /// 
+    ///
     /// # Safety Invariant
-    /// 
+    ///
     /// This method is safe because:
     /// 1. SDRAM memory is dedicated to this use (not overlapping with other memory)
     /// 2. The 'static lifetime is valid because SDRAM persists for the program's lifetime
     /// 3. The caller must ensure they don't create multiple overlapping mutable slices
-    /// 
+    ///
     /// However, calling this multiple times and storing both results violates Rust's
     /// aliasing rules. Use [`subslice_mut`] for partitioning.
-    /// 
+    ///
     /// # Type Constraints
-    /// 
+    ///
     /// The type T must have size that evenly divides the SDRAM size, and proper alignment.
     /// Common types: u8, u16, u32 for pixel buffers.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the size of T doesn't evenly divide the SDRAM size.
     pub fn as_slice_mut<T>(&mut self) -> &'static mut [T]
     where
@@ -313,36 +373,36 @@ impl Sdram {
     {
         let type_size = mem::size_of::<T>();
         let type_align = mem::align_of::<T>();
-        
+
         assert!(
             SDRAM_SIZE_BYTES % type_size == 0,
             "Type size {} doesn't evenly divide SDRAM size {}",
             type_size,
             SDRAM_SIZE_BYTES
         );
-        
+
         assert!(
             (self.mem as usize) % type_align == 0,
             "SDRAM base address not aligned for type T (align={})",
             type_align
         );
-        
+
         let len = SDRAM_SIZE_BYTES / type_size;
         // SAFETY: SDRAM region is valid for program lifetime, we've verified alignment
         unsafe { &mut *core::ptr::slice_from_raw_parts_mut(self.mem as *mut T, len) }
     }
-    
+
     /// Get a typed mutable slice of a portion of the SDRAM region.
-    /// 
+    ///
     /// Use this to partition SDRAM into multiple regions (e.g., multiple framebuffers).
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `offset_bytes` - Byte offset from the start of SDRAM
     /// * `len_elements` - Number of elements of type T to include
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if:
     /// - `offset_bytes` is not aligned for type T
     /// - The region extends beyond SDRAM bounds
@@ -352,17 +412,17 @@ impl Sdram {
     {
         let type_size = mem::size_of::<T>();
         let type_align = mem::align_of::<T>();
-        
+
         let start = (self.mem as usize) + offset_bytes;
         let end = start + len_elements * type_size;
-        
+
         assert!(
             start % type_align == 0,
             "Offset {} not aligned for type T (align={})",
             offset_bytes,
             type_align
         );
-        
+
         assert!(
             end <= (self.mem as usize) + SDRAM_SIZE_BYTES,
             "Region extends beyond SDRAM bounds (offset={}, len={}, available={})",
@@ -370,7 +430,7 @@ impl Sdram {
             len_elements * type_size,
             SDRAM_SIZE_BYTES
         );
-        
+
         // SAFETY: We've verified alignment and bounds
         unsafe { &mut *core::ptr::slice_from_raw_parts_mut(start as *mut T, len_elements) }
     }

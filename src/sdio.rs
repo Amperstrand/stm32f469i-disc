@@ -79,10 +79,7 @@ const BLOCK_SIZE: usize = 512;
 /// # Returns
 /// * `Ok(())` if the card was detected and initialized
 /// * `Err(e)` if init failed after retries
-pub fn init_card<D>(
-    sdio: &mut Sdio<SdCard>,
-    delay: &mut D,
-) -> Result<(), hal::sdio::Error>
+pub fn init_card<D>(sdio: &mut Sdio<SdCard>, delay: &mut D) -> Result<(), hal::sdio::Error>
 where
     D: DelayMs<u32>,
 {
@@ -192,7 +189,11 @@ pub fn test_raw_read(sdio: &mut Sdio<SdCard>, num_blocks: u32) -> (u32, u32) {
     }
 
     #[cfg(feature = "defmt")]
-    defmt::info!("sdio: test_raw_read done - {} read, {} errors", blocks_read, errors);
+    defmt::info!(
+        "sdio: test_raw_read done - {} read, {} errors",
+        blocks_read,
+        errors
+    );
 
     (blocks_read, errors)
 }

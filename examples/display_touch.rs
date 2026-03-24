@@ -33,7 +33,7 @@ fn hue_to_rgb565(hue: u32, level: u32) -> u16 {
     let full = level;
     let rise = (level * fraction) / 60;
     let fall = (level * (60 - fraction)) / 60;
-    
+
     let (r, g, b) = match sector {
         0 => (full, rise, none),
         1 => (fall, full, none),
@@ -43,7 +43,7 @@ fn hue_to_rgb565(hue: u32, level: u32) -> u16 {
         5 => (full, none, fall),
         _ => (none, none, none),
     };
-    
+
     // Convert 8-bit RGB to RGB565: R5-G6-B5
     let r5 = (r >> 3) as u16;
     let g6 = (g >> 2) as u16;
@@ -94,7 +94,7 @@ fn main() -> ! {
 
     // Get raw pointer to framebuffer (avoids borrow checker issues with config_layer)
     let fb_ptr: *mut u16 = sdram.mem as *mut u16;
-    
+
     // Initialize display with RGB565 (compatible with DisplayController<u16>)
     defmt::info!("Initializing display...");
     let (mut display_ctrl, _controller) = lcd::init_display_full(
@@ -106,11 +106,9 @@ fn main() -> ! {
         lcd::BoardHint::Unknown,
         PixelFormat::RGB565,
     );
-    
+
     // Create static slice for config_layer (this is safe because SDRAM is static)
-    let fb: &'static mut [u16] = unsafe {
-        core::slice::from_raw_parts_mut(fb_ptr, lcd::FB_SIZE)
-    };
+    let fb: &'static mut [u16] = unsafe { core::slice::from_raw_parts_mut(fb_ptr, lcd::FB_SIZE) };
     display_ctrl.config_layer(Layer::L1, fb, PixelFormat::RGB565);
     display_ctrl.enable_layer(Layer::L1);
     display_ctrl.reload();
@@ -140,10 +138,12 @@ fn main() -> ! {
             }
         }
 
-        // Check for touch input
+        // Check for touch input using non-blocking poll
+        // NOTE: Do NOT use t.detect_touch() — it blocks forever until a touch event.
+        // Use td_status() + get_touch() for non-blocking polling in main loops.
         if let Some(t) = touch_ctrl.as_mut() {
-            if let Ok(num) = t.detect_touch(&mut i2c) {
-                if num > 0 {
+            if let Ok(status) = t.td_status(&mut i2c) {
+                if status > 0 {
                     if let Ok(point) = t.get_touch(&mut i2c, 1) {
                         let x = point.x as i32;
                         if touch_start_x.is_none() {
@@ -153,14 +153,11 @@ fn main() -> ! {
                         // Detect swipe
                         if let Some(start_x) = touch_start_x {
                             let delta = x - start_x;
-                            // Swipe right: delta > 50 (go to previous pattern)
                             if delta > 50 {
                                 pattern_num = pattern_num.saturating_sub(1);
                                 touch_start_x = None;
                                 defmt::info!("Swipe right -> pattern {}", pattern_num);
-                            }
-                            // Swipe left: delta < -50 (go to next pattern)
-                            else if delta < -50 {
+                            } else if delta < -50 {
                                 pattern_num = pattern_num.saturating_add(1);
                                 touch_start_x = None;
                                 defmt::info!("Swipe left -> pattern {}", pattern_num);
@@ -168,7 +165,6 @@ fn main() -> ! {
                         }
                     }
                 } else {
-                    // No touch detected
                     touch_start_x = None;
                 }
             }
