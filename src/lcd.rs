@@ -466,13 +466,19 @@ pub fn init_display_full(
     defmt::info!("Detected LCD controller: {:?}", controller);
 
     // Step 4: Initialize LTDC BEFORE panel init
-    // Currently only RGB565 is supported — panics are caught by the type system
-    // (returns DisplayController<u16>).
-    let display_ctrl = DisplayController::<u16>::new_dsi(
+    // Must use DisplayController::new() (not new_dsi()) to configure PLLSAI/R.
+    // new_dsi() skips PLL configuration, which causes a Precise Data Access
+    // Violation (HardFault) when the LTDC accesses its clock-dependent registers.
+    // The PLLSAI provides the LTDC pixel clock; even in DSI mode the LTDC
+    // peripheral requires it to be enabled.
+    let hse_freq = 8.MHz();
+    let display_ctrl = DisplayController::<u16>::new(
         ltdc,
         dma2d,
+        None,
         PixelFormat::RGB565,
         controller.display_config(orientation),
+        Some(hse_freq),
     );
 
     // Step 5: Set command mode and init panel
