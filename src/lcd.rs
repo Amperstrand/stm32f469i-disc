@@ -200,6 +200,9 @@ pub enum BoardHint {
     LegacyRevisionLikely,
     /// No reliable hint available.
     Unknown,
+    /// Skip probe entirely — force NT35510 (B08 board).
+    /// Use when DSI probe reads are known to be unreliable.
+    ForceNt35510,
 }
 
 /// Detect which LCD controller is connected via DSI probe.
@@ -211,6 +214,12 @@ pub fn detect_lcd_controller(
     delay: &mut (impl DelayUs<u32> + DelayMs<u32> + DelayNs),
     board_hint: BoardHint,
 ) -> LcdController {
+    if let BoardHint::ForceNt35510 = board_hint {
+        #[cfg(feature = "defmt")]
+        defmt::info!("NT35510 forced — skipping probe");
+        return LcdController::Nt35510;
+    }
+
     const PROBE_RETRIES: u8 = 3;
     embedded_hal_02::blocking::delay::DelayUs::<u32>::delay_us(delay, 20_000u32);
 
@@ -266,6 +275,7 @@ pub fn detect_lcd_controller(
     }
 
     let fallback_to_otm = match board_hint {
+        BoardHint::ForceNt35510 => unreachable!("handled above"),
         BoardHint::LegacyRevisionLikely => mismatch_count >= 1 && consistent_mismatch,
         BoardHint::NewRevisionLikely => mismatch_count >= PROBE_RETRIES && consistent_mismatch,
         BoardHint::Unknown => mismatch_count >= 2 && consistent_mismatch,
@@ -444,7 +454,6 @@ pub fn init_display_full(
     orientation: DisplayOrientation,
 ) -> (DisplayController<u16>, LcdController, DisplayOrientation) {
     // Step 1: DSI host init
-    // Use orientation-based timing; both panel types share identical timing per orientation.
     let display_timing = LcdController::Nt35510.display_config(orientation);
     let mut dsi_host = init_dsi(dsi, rcc, display_timing);
 
