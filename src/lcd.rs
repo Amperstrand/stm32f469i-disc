@@ -32,6 +32,7 @@ use crate::hal::{
     pac::{DMA2D, DSI, LTDC},
     prelude::*,
     rcc::Rcc,
+    time::Hertz,
 };
 #[cfg(feature = "framebuffer")]
 use crate::hal::{
@@ -404,32 +405,46 @@ pub fn init_panel(
 }
 
 /// Create the LTDC display controller for RGB565.
+///
+/// Configures PLLSAI/R to generate the LTDC pixel clock from HSE.
+/// On STM32F469 the LTDC pixel clock is always sourced from PLLSAI_R / PLLSAIDIVR,
+/// even in DSI mode — there is no mux to select the DSI clock.
 pub fn init_ltdc_rgb565(
     ltdc: LTDC,
     dma2d: DMA2D,
     controller: LcdController,
     orientation: DisplayOrientation,
+    hse_freq: Hertz,
 ) -> DisplayController<u16> {
-    DisplayController::<u16>::new_dsi(
+    DisplayController::<u16>::new(
         ltdc,
         dma2d,
+        None,
         PixelFormat::RGB565,
         controller.display_config(orientation),
+        Some(hse_freq),
     )
 }
 
 /// Create the LTDC display controller for ARGB8888.
+///
+/// Configures PLLSAI/R to generate the LTDC pixel clock from HSE.
+/// On STM32F469 the LTDC pixel clock is always sourced from PLLSAI_R / PLLSAIDIVR,
+/// even in DSI mode — there is no mux to select the DSI clock.
 pub fn init_ltdc_argb8888(
     ltdc: LTDC,
     dma2d: DMA2D,
     controller: LcdController,
     orientation: DisplayOrientation,
+    hse_freq: Hertz,
 ) -> DisplayController<u32> {
-    DisplayController::<u32>::new_dsi(
+    DisplayController::<u32>::new(
         ltdc,
         dma2d,
+        None,
         PixelFormat::ARGB8888,
         controller.display_config(orientation),
+        Some(hse_freq),
     )
 }
 
@@ -466,11 +481,8 @@ pub fn init_display_full(
     defmt::info!("Detected LCD controller: {:?}", controller);
 
     // Step 4: Initialize LTDC BEFORE panel init
-    // Must use DisplayController::new() (not new_dsi()) to configure PLLSAI/R.
-    // new_dsi() skips PLL configuration, which causes a Precise Data Access
-    // Violation (HardFault) when the LTDC accesses its clock-dependent registers.
-    // The PLLSAI provides the LTDC pixel clock; even in DSI mode the LTDC
-    // peripheral requires it to be enabled.
+    // PLLSAI/R must be configured even in DSI mode — the LTDC pixel clock on
+    // STM32F469 is always sourced from PLLSAI_R / PLLSAIDIVR (no mux to DSI).
     let hse_freq = 8.MHz();
     let display_ctrl = DisplayController::<u16>::new(
         ltdc,
