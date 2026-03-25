@@ -44,7 +44,7 @@ optional = true
 
 [dependencies.stm32f4xx-hal]
 git = "https://github.com/Amperstrand/stm32f4xx-hal"
-rev = "91f5371732b3ac12b99f2161ebd11cb5710fcc7a"
+branch = "fix/ltdc-swap-buffers-vbr-wait"
 default-features = false
 features = ["stm32f469", "stm32-fmc", "dsihost", "defmt", "sdio-host", "usb_fs"]
 
