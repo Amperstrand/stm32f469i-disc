@@ -286,7 +286,14 @@ pub fn init_panel(
             #[cfg(feature = "defmt")]
             defmt::info!("Initializing NT35510 (B08 revision)...");
             let mut panel = Nt35510::new();
-            panel.init(dsi_host, delay).unwrap();
+            panel
+                .init_rgb565(
+                    dsi_host,
+                    delay,
+                    nt35510::Mode::Portrait,
+                    nt35510::ColorMap::Rgb,
+                )
+                .unwrap();
         }
         LcdController::Otm8009a => {
             #[cfg(feature = "defmt")]
@@ -380,7 +387,14 @@ pub fn init_display_full(
             #[cfg(feature = "defmt")]
             defmt::info!("Initializing NT35510 (B08 revision)...");
             let mut panel = Nt35510::new();
-            panel.init(&mut dsi_host, delay).unwrap();
+            panel
+                .init_rgb565(
+                    &mut dsi_host,
+                    delay,
+                    nt35510::Mode::Portrait,
+                    nt35510::ColorMap::Rgb,
+                )
+                .unwrap();
         }
         LcdController::Otm8009a => {
             #[cfg(feature = "defmt")]

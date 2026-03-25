@@ -27,7 +27,7 @@ cortex-m-rt = "0.7"
 defmt = { version = "1.0", optional = true }
 stm32-fmc = "0.4"
 otm8009a = "0.1"
-nt35510 = "0.1.0"
+nt35510 = { git = "https://github.com/Amperstrand/nt35510", rev = "7d588ef40d94f51f2ed2df33acbb04a920a4ae0b" }
 ft6x06 = { git = "https://github.com/Amperstrand/ft6x06", rev = "2ed36f74d6b52e8ff68533c01a50d81800ae10b4", optional = true }
 
 [dependencies.embedded-hal]
