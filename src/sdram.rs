@@ -99,7 +99,7 @@ pub use sdram_pins;
 /// GPIO pins remaining after SDRAM initialization that VLS needs.
 ///
 /// These pins are NOT used by the SDRAM interface and are returned for use by
-/// the application (touch interrupt, SDIO).
+/// the application (touch interrupt, SDIO, scanner UART).
 ///
 /// Note: PH7 (LCD reset) is returned separately from `split_sdram_pins` since it's
 /// consumed during display initialization.
@@ -114,6 +114,10 @@ pub struct SdramRemainders {
     pub pc12: hal::gpio::PC12<hal::gpio::Input>,
     /// SDIO command pin
     pub pd2: hal::gpio::PD2<hal::gpio::Input>,
+    /// USART6 TX (QR scanner)
+    pub pg14: hal::gpio::PG14<hal::gpio::Input>,
+    /// USART6 RX (QR scanner)
+    pub pg9: hal::gpio::PG9<hal::gpio::Input>,
 }
 
 /// Split GPIO ports into SDRAM pins and remaining pins for VLS.
@@ -215,6 +219,8 @@ pub fn split_sdram_pins(
         pc11: gpioc.pc11,
         pc12: gpioc.pc12,
         pd2: gpiod.pd2,
+        pg14: gpiog.pg14,
+        pg9: gpiog.pg9,
     };
     let ph7 = gpioh.ph7;
 
