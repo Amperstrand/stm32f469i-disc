@@ -10,11 +10,11 @@
 //! # Usage
 //!
 //! ```no_run
-//! let (mut display_ctrl, _controller) = lcd::init_display_full(
+//! let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full(
 //!     dp.DSI, dp.LTDC, dp.DMA2D,
 //!     &mut rcc, &mut delay,
 //!     lcd::BoardHint::Unknown,
-//!     PixelFormat::RGB565,
+//!     lcd::DisplayOrientation::Portrait,
 //! );
 //! display_ctrl.config_layer(Layer::L1, buffer, PixelFormat::RGB565);
 //! display_ctrl.enable_layer(Layer::L1);
@@ -52,17 +52,45 @@ use embedded_hal_02::blocking::delay::{DelayMs, DelayUs};
 use nt35510::Nt35510;
 use otm8009a::{Otm8009A, Otm8009AConfig};
 
-/// Panel width in pixels (portrait).
-pub const WIDTH: u16 = 480;
-/// Panel height in pixels (portrait).
-pub const HEIGHT: u16 = 800;
-/// Framebuffer size in pixels.
-pub const FB_SIZE: usize = (WIDTH as usize) * (HEIGHT as usize);
+/// Panel physical width in pixels (portrait orientation).
+pub const PANEL_WIDTH: u16 = 480;
+/// Panel physical height in pixels (portrait orientation).
+pub const PANEL_HEIGHT: u16 = 800;
 
-/// NT35510 display timing (B08 revision).
+/// Display orientation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum DisplayOrientation {
+    /// Portrait: 480 pixels wide, 800 pixels tall (native panel orientation).
+    Portrait,
+    /// Landscape: 800 pixels wide, 480 pixels tall.
+    Landscape,
+}
+
+impl DisplayOrientation {
+    pub const fn width(self) -> u16 {
+        match self {
+            DisplayOrientation::Portrait => PANEL_WIDTH,
+            DisplayOrientation::Landscape => PANEL_HEIGHT,
+        }
+    }
+
+    pub const fn height(self) -> u16 {
+        match self {
+            DisplayOrientation::Portrait => PANEL_HEIGHT,
+            DisplayOrientation::Landscape => PANEL_WIDTH,
+        }
+    }
+
+    pub const fn fb_size(self) -> usize {
+        (self.width() as usize) * (self.height() as usize)
+    }
+}
+
+/// NT35510 display timing (B08 revision, portrait).
 pub const NT35510_DISPLAY_CONFIG: DisplayConfig = DisplayConfig {
-    active_width: WIDTH,
-    active_height: HEIGHT,
+    active_width: PANEL_WIDTH,
+    active_height: PANEL_HEIGHT,
     h_back_porch: 34,
     h_front_porch: 34,
     v_back_porch: 15,
@@ -76,10 +104,27 @@ pub const NT35510_DISPLAY_CONFIG: DisplayConfig = DisplayConfig {
     pixel_clock_pol: true,
 };
 
-/// OTM8009A display timing (B07 and earlier revisions).
+/// NT35510 display timing (B08 revision, landscape).
+pub const NT35510_DISPLAY_CONFIG_LANDSCAPE: DisplayConfig = DisplayConfig {
+    active_width: PANEL_HEIGHT,
+    active_height: PANEL_WIDTH,
+    h_back_porch: 15,
+    h_front_porch: 16,
+    v_back_porch: 34,
+    v_front_porch: 34,
+    h_sync: 1,
+    v_sync: 2,
+    frame_rate: 60,
+    h_sync_pol: true,
+    v_sync_pol: true,
+    no_data_enable_pol: false,
+    pixel_clock_pol: true,
+};
+
+/// OTM8009A display timing (B07 and earlier revisions, portrait).
 pub const OTM8009A_DISPLAY_CONFIG: DisplayConfig = DisplayConfig {
-    active_width: WIDTH,
-    active_height: HEIGHT,
+    active_width: PANEL_WIDTH,
+    active_height: PANEL_HEIGHT,
     h_back_porch: 34,
     h_front_porch: 34,
     v_back_porch: 15,
@@ -93,8 +138,33 @@ pub const OTM8009A_DISPLAY_CONFIG: DisplayConfig = DisplayConfig {
     pixel_clock_pol: true,
 };
 
-/// Default display config (works for both panel types).
+/// OTM8009A display timing (B07 and earlier revisions, landscape).
+pub const OTM8009A_DISPLAY_CONFIG_LANDSCAPE: DisplayConfig = DisplayConfig {
+    active_width: PANEL_HEIGHT,
+    active_height: PANEL_WIDTH,
+    h_back_porch: 15,
+    h_front_porch: 16,
+    v_back_porch: 34,
+    v_front_porch: 34,
+    h_sync: 1,
+    v_sync: 2,
+    frame_rate: 60,
+    h_sync_pol: true,
+    v_sync_pol: true,
+    no_data_enable_pol: false,
+    pixel_clock_pol: true,
+};
+
+/// Default display config (portrait, works for both panel types).
 pub const DISPLAY_CONFIG: DisplayConfig = NT35510_DISPLAY_CONFIG;
+
+/// Backwards-compatible aliases.
+#[deprecated = "Use DisplayOrientation::Portrait and PANEL_WIDTH/PANEL_HEIGHT instead"]
+pub const WIDTH: u16 = PANEL_WIDTH;
+#[deprecated = "Use DisplayOrientation::Portrait and PANEL_WIDTH/PANEL_HEIGHT instead"]
+pub const HEIGHT: u16 = PANEL_HEIGHT;
+#[deprecated = "Use DisplayOrientation::fb_size() instead"]
+pub const FB_SIZE: usize = DisplayOrientation::Portrait.fb_size();
 
 /// Detected / selected LCD controller.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,10 +176,16 @@ pub enum LcdController {
 
 impl LcdController {
     /// Return the LTDC timing configuration for this controller.
-    pub fn display_config(self) -> DisplayConfig {
-        match self {
-            LcdController::Nt35510 => NT35510_DISPLAY_CONFIG,
-            LcdController::Otm8009a => OTM8009A_DISPLAY_CONFIG,
+    pub fn display_config(self, orientation: DisplayOrientation) -> DisplayConfig {
+        match (self, orientation) {
+            (LcdController::Nt35510, DisplayOrientation::Portrait) => NT35510_DISPLAY_CONFIG,
+            (LcdController::Nt35510, DisplayOrientation::Landscape) => {
+                NT35510_DISPLAY_CONFIG_LANDSCAPE
+            }
+            (LcdController::Otm8009a, DisplayOrientation::Portrait) => OTM8009A_DISPLAY_CONFIG,
+            (LcdController::Otm8009a, DisplayOrientation::Landscape) => {
+                OTM8009A_DISPLAY_CONFIG_LANDSCAPE
+            }
         }
     }
 }
@@ -222,7 +298,7 @@ pub fn detect_lcd_controller(
 ///
 /// After calling this, wait 20ms before any panel communication.
 /// Prefer [`init_dsi_with_delay`] which includes the delay.
-pub fn init_dsi(dsi: DSI, rcc: &mut Rcc) -> DsiHost {
+pub fn init_dsi(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHost {
     let hse_freq = 8.MHz();
     let ltdc_freq = 27_429.kHz();
     // VCO = (8MHz HSE / 2 IDF) * 2 * 125 = 1000MHz
@@ -245,7 +321,7 @@ pub fn init_dsi(dsi: DSI, rcc: &mut Rcc) -> DsiHost {
 
     #[cfg(feature = "defmt")]
     defmt::info!("Initializing DSI...");
-    let mut dsi_host = DsiHost::init(dsi_pll_config, DISPLAY_CONFIG, dsi_config, dsi, rcc).unwrap();
+    let mut dsi_host = DsiHost::init(dsi_pll_config, display_config, dsi_config, dsi, rcc).unwrap();
 
     dsi_host.configure_phy_timers(DsiPhyTimers {
         dataline_hs2lp: 35,
@@ -265,7 +341,7 @@ pub fn init_dsi(dsi: DSI, rcc: &mut Rcc) -> DsiHost {
 
 /// Initialize DSI host and wait for panel link to settle (20ms).
 pub fn init_dsi_with_delay(dsi: DSI, rcc: &mut Rcc, delay: &mut impl DelayMs<u32>) -> DsiHost {
-    let dsi_host = init_dsi(dsi, rcc);
+    let dsi_host = init_dsi(dsi, rcc, DISPLAY_CONFIG);
     delay.delay_ms(20u32);
     dsi_host
 }
@@ -295,8 +371,8 @@ pub fn init_panel(
                 frame_rate: otm8009a::FrameRate::_60Hz,
                 mode: otm8009a::Mode::Portrait,
                 color_map: otm8009a::ColorMap::Rgb,
-                cols: WIDTH,
-                rows: HEIGHT,
+                cols: PANEL_WIDTH,
+                rows: PANEL_HEIGHT,
             };
             let mut otm = Otm8009A::new();
             otm.init(dsi_host, otm_config, delay).unwrap();
@@ -311,13 +387,33 @@ pub fn init_panel(
 }
 
 /// Create the LTDC display controller for RGB565.
-pub fn init_ltdc_rgb565(ltdc: LTDC, dma2d: DMA2D) -> DisplayController<u16> {
-    DisplayController::<u16>::new_dsi(ltdc, dma2d, PixelFormat::RGB565, DISPLAY_CONFIG)
+pub fn init_ltdc_rgb565(
+    ltdc: LTDC,
+    dma2d: DMA2D,
+    controller: LcdController,
+    orientation: DisplayOrientation,
+) -> DisplayController<u16> {
+    DisplayController::<u16>::new_dsi(
+        ltdc,
+        dma2d,
+        PixelFormat::RGB565,
+        controller.display_config(orientation),
+    )
 }
 
 /// Create the LTDC display controller for ARGB8888.
-pub fn init_ltdc_argb8888(ltdc: LTDC, dma2d: DMA2D) -> DisplayController<u32> {
-    DisplayController::<u32>::new_dsi(ltdc, dma2d, PixelFormat::ARGB8888, DISPLAY_CONFIG)
+pub fn init_ltdc_argb8888(
+    ltdc: LTDC,
+    dma2d: DMA2D,
+    controller: LcdController,
+    orientation: DisplayOrientation,
+) -> DisplayController<u32> {
+    DisplayController::<u32>::new_dsi(
+        ltdc,
+        dma2d,
+        PixelFormat::ARGB8888,
+        controller.display_config(orientation),
+    )
 }
 
 /// Full display initialization following the proven lcd-test sequence.
@@ -330,7 +426,7 @@ pub fn init_ltdc_argb8888(ltdc: LTDC, dma2d: DMA2D) -> DisplayController<u32> {
 /// 5. Panel initialization
 /// 6. Switch DSI to high-speed mode
 ///
-/// Returns `(DisplayController, LcdController)`.
+/// Returns `(DisplayController, LcdController, DisplayOrientation)`.
 pub fn init_display_full(
     dsi: DSI,
     ltdc: LTDC,
@@ -338,12 +434,12 @@ pub fn init_display_full(
     rcc: &mut Rcc,
     delay: &mut (impl DelayUs<u32> + DelayMs<u32> + DelayNs),
     board_hint: BoardHint,
-    pixel_format: PixelFormat,
-) -> (DisplayController<u16>, LcdController) {
-    let hse_freq = 8.MHz();
-
+    orientation: DisplayOrientation,
+) -> (DisplayController<u16>, LcdController, DisplayOrientation) {
     // Step 1: DSI host init
-    let mut dsi_host = init_dsi(dsi, rcc);
+    // Use orientation-based timing; both panel types share identical timing per orientation.
+    let display_timing = LcdController::Nt35510.display_config(orientation);
+    let mut dsi_host = init_dsi(dsi, rcc, display_timing);
 
     // Step 2: Critical delay for panel link
     embedded_hal_02::blocking::delay::DelayMs::<u32>::delay_ms(delay, 20u32);
@@ -354,22 +450,14 @@ pub fn init_display_full(
     defmt::info!("Detected LCD controller: {:?}", controller);
 
     // Step 4: Initialize LTDC BEFORE panel init
-    let display_ctrl = match pixel_format {
-        PixelFormat::RGB565 => DisplayController::<u16>::new(
-            ltdc,
-            dma2d,
-            None,
-            pixel_format,
-            controller.display_config(),
-            Some(hse_freq),
-        ),
-        _ => DisplayController::<u16>::new_dsi(
-            ltdc,
-            dma2d,
-            pixel_format,
-            controller.display_config(),
-        ),
-    };
+    // Currently only RGB565 is supported — panics are caught by the type system
+    // (returns DisplayController<u16>).
+    let display_ctrl = DisplayController::<u16>::new_dsi(
+        ltdc,
+        dma2d,
+        PixelFormat::RGB565,
+        controller.display_config(orientation),
+    );
 
     // Step 5: Set command mode and init panel
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
@@ -389,8 +477,8 @@ pub fn init_display_full(
                 frame_rate: otm8009a::FrameRate::_60Hz,
                 mode: otm8009a::Mode::Portrait,
                 color_map: otm8009a::ColorMap::Rgb,
-                cols: WIDTH,
-                rows: HEIGHT,
+                cols: PANEL_WIDTH,
+                rows: PANEL_HEIGHT,
             };
             let mut otm = Otm8009A::new();
             otm.init(&mut dsi_host, otm_config, delay).unwrap();
@@ -403,7 +491,7 @@ pub fn init_display_full(
     #[cfg(feature = "defmt")]
     defmt::info!("Display initialized successfully");
 
-    (display_ctrl, controller)
+    (display_ctrl, controller, orientation)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -422,6 +510,7 @@ pub fn init_display_pipeline(
     gpioi: stm32f4xx_hal::gpio::gpioi::Parts,
     rcc: &mut Rcc,
     delay: &mut SysDelay,
+    orientation: DisplayOrientation,
 ) -> (LtdcFramebuffer<u16>, SdramRemainders) {
     let (sdram_pins, remainders, ph7) =
         sdram::split_sdram_pins(gpioc, gpiod, gpioe, gpiof, gpiog, gpioh, gpioi);
@@ -433,19 +522,19 @@ pub fn init_display_pipeline(
     embedded_hal_02::blocking::delay::DelayMs::<u32>::delay_ms(delay, 10u32);
 
     let mut sdram = sdram::Sdram::new(fmc, sdram_pins, &rcc.clocks, delay);
-    let buffer: &'static mut [u16] = sdram.subslice_mut(0, FB_SIZE);
-    let mut fb = LtdcFramebuffer::new(buffer, WIDTH, HEIGHT);
+    let buffer: &'static mut [u16] = sdram.subslice_mut(0, orientation.fb_size());
+    let mut fb = LtdcFramebuffer::new(buffer, orientation.width(), orientation.height());
     fb.clear(Rgb565::BLACK).ok();
     let buffer = fb.into_inner();
 
-    let (mut display_ctrl, _lcd_controller) = init_display_full(
+    let (mut display_ctrl, _lcd_controller, _orientation) = init_display_full(
         dsi,
         ltdc,
         dma2d,
         rcc,
         delay,
         BoardHint::Unknown,
-        PixelFormat::RGB565,
+        orientation,
     );
 
     display_ctrl.config_layer(Layer::L1, buffer, PixelFormat::RGB565);
@@ -457,9 +546,13 @@ pub fn init_display_pipeline(
         .expect("layer L1 buffer");
     let buffer: &'static mut [u16] = unsafe { core::mem::transmute(buffer) };
 
-    (LtdcFramebuffer::new(buffer, WIDTH, HEIGHT), remainders)
+    (
+        LtdcFramebuffer::new(buffer, orientation.width(), orientation.height()),
+        remainders,
+    )
 }
 
+#[cfg(feature = "framebuffer")]
 /// Tear-free double framebuffer for the STM32F469I-DISCO display.
 ///
 /// Holds two SDRAM-backed framebuffers and a `DisplayController` reference.
@@ -470,7 +563,7 @@ pub fn init_display_pipeline(
 ///
 /// ```ignore
 /// let mut dbl = lcd::DoubleFramebuffer::new(
-///     &mut sdram, display_ctrl, BoardHint::Unknown, PixelFormat::RGB565,
+///     &mut sdram, display_ctrl, DisplayOrientation::Portrait,
 /// );
 /// // draw into back buffer
 /// dbl.back_buffer().fill(0x0000);
@@ -482,6 +575,7 @@ pub struct DoubleFramebuffer {
     display_ctrl: DisplayController<u16>,
 }
 
+#[cfg(feature = "framebuffer")]
 impl DoubleFramebuffer {
     /// Create a new double-buffered display pipeline.
     ///
@@ -493,11 +587,11 @@ impl DoubleFramebuffer {
     pub fn new(
         sdram: &mut sdram::Sdram,
         mut display_ctrl: DisplayController<u16>,
-        _board_hint: BoardHint,
-        pixel_format: PixelFormat,
+        orientation: DisplayOrientation,
     ) -> Self {
-        let fb1: &'static mut [u16] = sdram.subslice_mut(0, FB_SIZE);
-        let fb2: &'static mut [u16] = sdram.subslice_mut(FB_SIZE * 2, FB_SIZE);
+        let fb_size = orientation.fb_size();
+        let fb1: &'static mut [u16] = sdram.subslice_mut(0, fb_size);
+        let fb2: &'static mut [u16] = sdram.subslice_mut(fb_size * 2, fb_size);
 
         for px in fb1.iter_mut() {
             *px = 0;
@@ -507,7 +601,7 @@ impl DoubleFramebuffer {
         }
 
         let fb1_addr = fb1.as_ptr() as u32;
-        display_ctrl.config_layer(Layer::L1, fb1, pixel_format);
+        display_ctrl.config_layer(Layer::L1, fb1, PixelFormat::RGB565);
         display_ctrl.enable_layer(Layer::L1);
         display_ctrl.reload();
 
@@ -517,7 +611,7 @@ impl DoubleFramebuffer {
         // preventing us from moving display_ctrl into Self. The buffer lives
         // for 'static in SDRAM and we are the sole owner.
         let fb1: &'static mut [u16] =
-            unsafe { &mut *core::ptr::slice_from_raw_parts_mut(fb1_addr as *mut u16, FB_SIZE) };
+            unsafe { &mut *core::ptr::slice_from_raw_parts_mut(fb1_addr as *mut u16, fb_size) };
 
         Self {
             front: fb1,
@@ -539,7 +633,8 @@ impl DoubleFramebuffer {
     /// into the double framebuffer from code that expects `LcdcFramebuffer`.
     ///
     /// # Safety
-    /// The caller must ensure `width * height == FB_SIZE`.
+    /// The caller must ensure `width * height` matches the buffer size used
+    /// to create this `DoubleFramebuffer`.
     pub fn render_and_swap<F>(&mut self, width: u16, height: u16, f: F)
     where
         F: FnOnce(&mut crate::hal::ltdc::LtdcFramebuffer<u16>),
