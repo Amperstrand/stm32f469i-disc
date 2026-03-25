@@ -416,13 +416,12 @@ pub fn init_ltdc_rgb565(
     orientation: DisplayOrientation,
     hse_freq: Hertz,
 ) -> DisplayController<u16> {
-    DisplayController::<u16>::new(
+    DisplayController::<u16>::new_dsi(
         ltdc,
         dma2d,
-        None,
         PixelFormat::RGB565,
         controller.display_config(orientation),
-        Some(hse_freq),
+        hse_freq,
     )
 }
 
@@ -438,13 +437,12 @@ pub fn init_ltdc_argb8888(
     orientation: DisplayOrientation,
     hse_freq: Hertz,
 ) -> DisplayController<u32> {
-    DisplayController::<u32>::new(
+    DisplayController::<u32>::new_dsi(
         ltdc,
         dma2d,
-        None,
         PixelFormat::ARGB8888,
         controller.display_config(orientation),
-        Some(hse_freq),
+        hse_freq,
     )
 }
 
