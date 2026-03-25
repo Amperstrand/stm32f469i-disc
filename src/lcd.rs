@@ -534,6 +534,28 @@ impl DoubleFramebuffer {
         &mut self.back
     }
 
+    /// Execute a closure with a temporary `LtdcFramebuffer` wrapping the back
+    /// buffer, then swap the buffers. This is the recommended way to render
+    /// into the double framebuffer from code that expects `LcdcFramebuffer`.
+    ///
+    /// # Safety
+    /// The caller must ensure `width * height == FB_SIZE`.
+    pub fn render_and_swap<F>(&mut self, width: u16, height: u16, f: F)
+    where
+        F: FnOnce(&mut crate::hal::ltdc::LtdcFramebuffer<u16>),
+    {
+        let back_ptr = self.back.as_mut_ptr();
+        let back_len = self.back.len();
+        let mut tmp_fb = unsafe {
+            let static_buf: &'static mut [u16] =
+                core::mem::transmute(core::slice::from_raw_parts_mut(back_ptr, back_len));
+            crate::hal::ltdc::LtdcFramebuffer::new(static_buf, width, height)
+        };
+        f(&mut tmp_fb);
+        defmt::trace!("render_and_swap: calling swap");
+        self.swap();
+    }
+
     /// Queue a buffer swap at the next vertical blanking period.
     ///
     /// After this call the current back buffer becomes the front buffer
@@ -572,5 +594,12 @@ impl DoubleFramebuffer {
     /// `LtdcFramebuffer` after double-buffered animation is complete.
     pub fn into_front_buffer(mut self) -> &'static mut [u16] {
         self.front
+    }
+
+    /// Consume the double framebuffer and return the front buffer and the
+    /// `DisplayController` separately, allowing the controller to be used for
+    /// further operations (e.g., periodic `swap_buffers()` calls).
+    pub fn into_parts(mut self) -> (&'static mut [u16], DisplayController<u16>) {
+        (self.front, self.display_ctrl)
     }
 }
