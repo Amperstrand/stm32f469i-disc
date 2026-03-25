@@ -66,9 +66,11 @@ fn main() -> ! {
         &mut delay,
     );
 
-    let buffer: &'static mut [u16] =
-        unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sdram.mem as *mut u16, lcd::FB_SIZE) };
-    let mut fb = LtdcFramebuffer::new(buffer, lcd::WIDTH, lcd::HEIGHT);
+    let orientation = lcd::DisplayOrientation::Portrait;
+    let buffer: &'static mut [u16] = unsafe {
+        &mut *core::ptr::slice_from_raw_parts_mut(sdram.mem as *mut u16, orientation.fb_size())
+    };
+    let mut fb = LtdcFramebuffer::new(buffer, orientation.width(), orientation.height());
 
     // Draw with embedded-graphics
     fb.clear(Rgb565::BLACK).ok();
@@ -101,14 +103,14 @@ fn main() -> ! {
 
     // Initialize display
     defmt::info!("Initializing display...");
-    let (mut display_ctrl, _controller) = lcd::init_display_full(
+    let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full(
         dp.DSI,
         dp.LTDC,
         dp.DMA2D,
         &mut rcc,
         &mut delay,
         lcd::BoardHint::Unknown,
-        PixelFormat::RGB565,
+        lcd::DisplayOrientation::Portrait,
     );
     display_ctrl.config_layer(Layer::L1, buffer, PixelFormat::RGB565);
     display_ctrl.enable_layer(Layer::L1);

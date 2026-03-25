@@ -97,18 +97,20 @@ fn main() -> ! {
 
     // Initialize display with RGB565 (compatible with DisplayController<u16>)
     defmt::info!("Initializing display...");
-    let (mut display_ctrl, _controller) = lcd::init_display_full(
+    let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full(
         dp.DSI,
         dp.LTDC,
         dp.DMA2D,
         &mut rcc,
         &mut delay,
         lcd::BoardHint::Unknown,
-        PixelFormat::RGB565,
+        lcd::DisplayOrientation::Portrait,
     );
 
     // Create static slice for config_layer (this is safe because SDRAM is static)
-    let fb: &'static mut [u16] = unsafe { core::slice::from_raw_parts_mut(fb_ptr, lcd::FB_SIZE) };
+    let fb: &'static mut [u16] = unsafe {
+        core::slice::from_raw_parts_mut(fb_ptr, lcd::DisplayOrientation::Portrait.fb_size())
+    };
     display_ctrl.config_layer(Layer::L1, fb, PixelFormat::RGB565);
     display_ctrl.enable_layer(Layer::L1);
     display_ctrl.reload();
@@ -125,15 +127,16 @@ fn main() -> ! {
     let mut pattern_num = 0u32;
     let mut touch_start_x: Option<i32> = None;
 
+    let orientation = lcd::DisplayOrientation::Portrait;
     loop {
         // Fill screen with current pattern using raw pointer
         let hue_base = pattern_num * 60;
-        for row in 0..lcd::HEIGHT as usize {
+        for row in 0..orientation.height() as usize {
             let hue = hue_base + row as u32;
-            for col in 0..lcd::WIDTH as usize {
+            for col in 0..orientation.width() as usize {
                 let rgb565 = hue_to_rgb565(hue, 255);
                 unsafe {
-                    *fb_ptr.add(row * lcd::WIDTH as usize + col) = rgb565;
+                    *fb_ptr.add(row * orientation.width() as usize + col) = rgb565;
                 }
             }
         }

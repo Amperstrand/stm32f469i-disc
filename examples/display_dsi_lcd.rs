@@ -80,20 +80,20 @@ fn main() -> ! {
         &rcc.clocks,
         &mut delay,
     );
-    let fb: &'static mut [u16] = unsafe {
-        core::slice::from_raw_parts_mut(sdram.mem as *mut u16, lcd::FB_SIZE)
-    };
+    let orientation = lcd::DisplayOrientation::Portrait;
+    let fb: &'static mut [u16] =
+        unsafe { core::slice::from_raw_parts_mut(sdram.mem as *mut u16, orientation.fb_size()) };
 
     // Initialize display using BSP lcd module (RGB565 to match DisplayController<u16>)
     defmt::info!("Initializing display...");
-    let (mut display_ctrl, _controller) = lcd::init_display_full(
+    let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full(
         dp.DSI,
         dp.LTDC,
         dp.DMA2D,
         &mut rcc,
         &mut delay,
         lcd::BoardHint::Unknown,
-        PixelFormat::RGB565,
+        lcd::DisplayOrientation::Portrait,
     );
     display_ctrl.config_layer(Layer::L1, fb, PixelFormat::RGB565);
     display_ctrl.enable_layer(Layer::L1);
@@ -106,11 +106,13 @@ fn main() -> ! {
     let ratio = 3;
     let speed = 3;
     loop {
-        let buf = display_ctrl.layer_buffer_mut(Layer::L1).expect("layer L1 buffer");
+        let buf = display_ctrl
+            .layer_buffer_mut(Layer::L1)
+            .expect("layer L1 buffer");
         let mut addr = 0;
-        for row in 0..lcd::HEIGHT as u32 {
+        for row in 0..orientation.height() as u32 {
             let rgb = hue_to_rgb565((hue + row) / ratio, 255);
-            for _col in 0..lcd::WIDTH as u32 {
+            for _col in 0..orientation.width() as u32 {
                 buf[addr] = rgb;
                 addr += 1;
             }
