@@ -22,6 +22,7 @@ pub type LD3 = PD5<Output<PushPull>>;
 pub type LD4 = PK3<Output<PushPull>>;
 
 /// User LED colors
+#[derive(Clone, Copy)]
 pub enum LedColor {
     Green,
     Orange,

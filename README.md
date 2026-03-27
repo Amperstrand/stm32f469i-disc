@@ -1,5 +1,5 @@
 stm32f469i-disc
-===============
+================
 Board support package for the STM32F469I-DISCOVERY kit.
 Quick Start
 -----------
@@ -106,6 +106,37 @@ If the board is connected to this machine and probe-rs is installed:
 ```bash
 cargo run --example gpio_hal_blinky
 ```
+
+Testing
+-------
+Requires an ST-Link probe and `probe-rs` installed.
+
+Run the full fast test suite (~60s, flashes and runs all tests automatically):
+
+    ./run_tests.sh
+
+Run individual tests:
+
+    ./run_tests.sh test_led         # LED on/off, toggle, patterns (16 tests)
+    ./run_tests.sh test_sdram       # Fast SDRAM spot-checks (14 tests, ~10s)
+    ./run_tests.sh test_sdram_full  # Exhaustive SDRAM tests, all 16MB (16 tests, ~3-5min)
+    ./run_tests.sh test_gpio        # PA0 button input, GPIO output echo (5 tests)
+    ./run_tests.sh test_uart        # USART1 TX, formatted output (4 tests)
+    ./run_tests.sh test_timers      # TIM2/TIM3 delays, PWM, cancel (6 tests)
+    ./run_tests.sh test_dma         # DMA2 memory-to-memory transfers (4 tests)
+    ./run_tests.sh test_lcd         # DSI LCD init, color fills, gradient (13 tests)
+    ./run_tests.sh test_usb         # USB CDC init, echo (needs host, 3 tests)
+    ./run_tests.sh test_all         # All non-USB tests in one flash (~30 tests, ~60s)
+
+Results are saved to `test-results/`.
+
+The fast SDRAM test (`test_sdram`) thoroughly tests the first 256KB then spot-checks
+16 evenly-spaced regions, scattered random probes, and the last 64KB across all 16MB.
+The full variant (`test_sdram_full`) runs walking 1s/0s, checkerboard, address patterns,
+March C-, and multi-pass random over the entire 16MB.
+
+The `test_all` binary runs LED, GPIO, UART, Timer, DMA, SDRAM, and LCD tests in a
+single flash, using `Peripherals::steal()` to re-acquire hardware between suites.
 
 Credits
 -------
