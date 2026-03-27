@@ -69,4 +69,11 @@ If you are starting a new project on STM32F469I-Discovery:
 
 ## Upstream Interaction Policy
 
-**NEVER file PRs or issues on upstream projects without human review.** See [Amperstrand/micronuts#19](https://github.com/Amperstrand/micronuts/issues/19).
+**NEVER file PRs or issues on upstream projects (stm32-rs, embassy-rs, DougAnderson444, etc.) without human review and approval.** AI-generated bug diagnoses can be confidently wrong. If you find a potential upstream bug:
+1. Document your findings in an Amperstrand repo issue first
+2. Include all evidence (register dumps, test results, methodology)
+3. Let a human decide whether to escalate
+
+This repo is a fork of an upstream BSP. Changes intended for upstream stm32-rs/stm32f4xx-hal or related projects must go through human review first.
+
+See [Amperstrand/micronuts#19](https://github.com/Amperstrand/micronuts/issues/19) for a retrospective on how a confident misdiagnosis wasted upstream maintainer time.
