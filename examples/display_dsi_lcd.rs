@@ -1,7 +1,8 @@
-//! DSI LCD test — rolling gradient on the STM32F469I-DISCO display.
+//! HIL test: DSI LCD init + one-frame render on the STM32F469I-DISCO display.
 //!
-//! Uses the BSP `lcd` module for display initialization, supporting both
-//! NT35510 (B08) and OTM8009A (B07) panels automatically.
+//! Proves the full display pipeline: SDRAM init, DSI host, LCD controller
+//! detection (NT35510/OTM8009A), LTDC config, and framebuffer write.
+//! Renders one gradient frame then halts. Verify visually on the LCD panel.
 //!
 //! Run: `cargo run --release --example display_dsi_lcd`
 
@@ -56,7 +57,6 @@ fn main() -> ! {
         .freeze(rcc::Config::hse(8.MHz()).pclk2(32.MHz()).sysclk(180.MHz()));
     let mut delay = cp.SYST.delay(&rcc.clocks);
 
-    let gpioa = dp.GPIOA.split(&mut rcc);
     let gpioc = dp.GPIOC.split(&mut rcc);
     let gpiod = dp.GPIOD.split(&mut rcc);
     let gpioe = dp.GPIOE.split(&mut rcc);
@@ -65,14 +65,12 @@ fn main() -> ! {
     let gpioh = dp.GPIOH.split(&mut rcc);
     let gpioi = dp.GPIOI.split(&mut rcc);
 
-    // LCD reset
     let mut lcd_reset = gpioh.ph7.into_push_pull_output();
     lcd_reset.set_low();
     delay.delay_ms(20u32);
     lcd_reset.set_high();
     delay.delay_ms(10u32);
 
-    // Initialize SDRAM for framebuffer
     defmt::info!("Initializing SDRAM...");
     let sdram = Sdram::new(
         dp.FMC,
@@ -84,7 +82,6 @@ fn main() -> ! {
     let fb: &'static mut [u16] =
         unsafe { core::slice::from_raw_parts_mut(sdram.mem as *mut u16, orientation.fb_size()) };
 
-    // Initialize display using BSP lcd module (RGB565 to match DisplayController<u16>)
     defmt::info!("Initializing display...");
     let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full(
         dp.DSI,
@@ -99,26 +96,23 @@ fn main() -> ! {
     display_ctrl.enable_layer(Layer::L1);
     display_ctrl.reload();
 
-    defmt::info!("Display ready — rolling gradient");
-
-    // Rolling gradient animation (use buffer from controller)
-    let mut hue = 0u32;
-    let ratio = 3;
-    let speed = 3;
-    loop {
-        let buf = display_ctrl
-            .layer_buffer_mut(Layer::L1)
-            .expect("layer L1 buffer");
-        let mut addr = 0;
-        for row in 0..orientation.height() as u32 {
-            let rgb = hue_to_rgb565((hue + row) / ratio, 255);
-            for _col in 0..orientation.width() as u32 {
-                buf[addr] = rgb;
-                addr += 1;
-            }
+    let buf = display_ctrl
+        .layer_buffer_mut(Layer::L1)
+        .expect("layer L1 buffer");
+    let mut addr = 0;
+    for row in 0..orientation.height() as u32 {
+        let rgb = hue_to_rgb565(row * 360 / orientation.height() as u32, 255);
+        for _col in 0..orientation.width() as u32 {
+            buf[addr] = rgb;
+            addr += 1;
         }
-        display_ctrl.reload();
-        hue += speed * if gpioa.pa0.is_high() { 5 } else { 1 };
-        delay.delay_ms(15u32);
+    }
+    display_ctrl.reload();
+
+    defmt::info!("Display ready — one frame rendered");
+    defmt::info!("HIL_RESULT:display_dsi_lcd:PASS");
+
+    loop {
+        cortex_m::asm::wfi();
     }
 }

@@ -1,7 +1,8 @@
-//! Hello embedded-graphics on the STM32F469I-DISCO display.
+//! HIL test: embedded-graphics draw on the STM32F469I-DISCO display.
 //!
-//! Renders text and colored shapes using the BSP `lcd` module and
-//! `LtdcFramebuffer` as the DrawTarget.
+//! Proves the full framebuffer pipeline: SDRAM init, embedded-graphics
+//! drawing (text, shapes), LTDC display output. Renders text and colored
+//! shapes then halts. Verify visually on the LCD panel.
 //!
 //! Run: `cargo run --release --example display_hello_eg --features framebuffer`
 
@@ -50,14 +51,12 @@ fn main() -> ! {
     let gpioh = dp.GPIOH.split(&mut rcc);
     let gpioi = dp.GPIOI.split(&mut rcc);
 
-    // LCD reset
     let mut lcd_reset = gpioh.ph7.into_push_pull_output();
     lcd_reset.set_low();
     delay.delay_ms(20u32);
     lcd_reset.set_high();
     delay.delay_ms(10u32);
 
-    // Initialize SDRAM for framebuffer
     defmt::info!("Initializing SDRAM...");
     let sdram = Sdram::new(
         dp.FMC,
@@ -72,7 +71,6 @@ fn main() -> ! {
     };
     let mut fb = LtdcFramebuffer::new(buffer, orientation.width(), orientation.height());
 
-    // Draw with embedded-graphics
     fb.clear(Rgb565::BLACK).ok();
 
     let text_style = MonoTextStyle::new(&FONT_10X20, Rgb565::WHITE);
@@ -101,7 +99,6 @@ fn main() -> ! {
 
     let buffer = fb.into_inner();
 
-    // Initialize display
     defmt::info!("Initializing display...");
     let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full(
         dp.DSI,
@@ -117,6 +114,8 @@ fn main() -> ! {
     display_ctrl.reload();
 
     defmt::info!("Hello embedded-graphics! Display ready.");
+    defmt::info!("HIL_RESULT:display_hello_eg:PASS");
+
     loop {
         cortex_m::asm::wfi();
     }

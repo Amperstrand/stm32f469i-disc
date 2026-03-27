@@ -1,20 +1,15 @@
-//! SDIO clock speed sweep: test multiple data-transfer frequencies and log results.
+//! HIL test: SDIO clock speed sweep.
 //!
-//! **Optional test** – run only when you need to characterize your SD card. Repeated runs may
-//! stress the card; use sparingly. See `docs/SDIO-CLOCK-SPEEDS.md` for when to run and tradeoffs.
+//! **Optional test** – run only when you need to characterize your SD card.
+//! Repeated runs may stress the card; use sparingly. See `docs/SDIO-CLOCK-SPEEDS.md`.
 //!
-//! **Tested on hardware:** This sweep (1, 4, 8, 12, 24 MHz) has been run on the STM32F469I-DISCO;
-//! results are recorded in `docs/SDIO-CLOCK-SPEEDS.md` and `logs/sweep_analysis.txt`. We stop at
-//! 24 MHz (HAL practical max; 48 MHz causes SDIO clock issues on F4).
-//!
-//! After init at 400 kHz and 500 ms stabilization, tries each of 1, 4, 8, 12, 24 MHz with a
-//! short read test (256 blocks), then runs the full 10 MiB test at 1 MHz. Prints a results
-//! summary, recommendation (highest passing speed), and tradeoffs. Copy the output into
-//! `docs/SDIO-CLOCK-SPEEDS.md` to record results.
+//! After init at 400 kHz and 500 ms stabilization, tries each of 1, 4, 8, 12, 24 MHz
+//! with a short read test (256 blocks), then runs the full 10 MiB test at 1 MHz.
+//! Prints HIL_RESULT and halts. Gracefully skips if no card is detected.
 //!
 //! Build/run (requires `sdio-speed-test` feature):
-//! - Full sweep (all 5 frequencies + 10 MiB at 1 MHz): `cargo run --example sdio_speed_sweep --features sdio-speed-test`
-//! - One frequency per run (for automated capture): `cargo run --example sdio_speed_sweep --features sdio-speed-test,sweep-4mhz` (use sweep-1mhz, sweep-4mhz, sweep-8mhz, sweep-12mhz, or sweep-24mhz)
+//! - Full sweep: `cargo run --example sdio_speed_sweep --features sdio-speed-test`
+//! - One frequency: `cargo run --example sdio_speed_sweep --features sdio-speed-test,sweep-4mhz`
 
 #![no_main]
 #![no_std]
@@ -25,10 +20,10 @@ use cortex_m_rt::entry;
 use defmt_rtt as _;
 use panic_probe as _;
 
-use stm32f469i_disc as board;
 use board::hal::{pac, prelude::*, rcc};
-use board::sdram::{split_sdram_pins, Sdram};
 use board::sdio;
+use board::sdram::{split_sdram_pins, Sdram};
+use stm32f469i_disc as board;
 
 const SWEEP_BLOCKS: u32 = 256;
 #[cfg(not(any(
@@ -40,7 +35,6 @@ const SWEEP_BLOCKS: u32 = 256;
 )))]
 const FULL_TEST_BLOCKS: u32 = 20480;
 
-/// Pass/fail and error count per frequency (index 0..4 = 1, 4, 8, 12, 24 MHz).
 #[cfg(not(any(
     feature = "sweep-1mhz",
     feature = "sweep-4mhz",
@@ -49,11 +43,15 @@ const FULL_TEST_BLOCKS: u32 = 20480;
     feature = "sweep-24mhz"
 )))]
 fn sweep_results_order_mhz() -> [(u8, &'static str); 5] {
-    [(1, "1 MHz"), (4, "4 MHz"), (8, "8 MHz"), (12, "12 MHz"), (24, "24 MHz")]
+    [
+        (1, "1 MHz"),
+        (4, "4 MHz"),
+        (8, "8 MHz"),
+        (12, "12 MHz"),
+        (24, "24 MHz"),
+    ]
 }
 
-/// Machine-parseable results for automated capture. Format: "1=PASS,4=PASS,...,REC=8\0"
-/// Address from ELF: nm <elf> | grep SWEEP_RESULTS_BUF
 #[used]
 static mut SWEEP_RESULTS_BUF: [u8; 128] = [0; 128];
 
@@ -109,7 +107,6 @@ fn write_results_to_buf(results: &[(bool, u32); 5], best_mhz: u8) {
     feature = "sweep-12mhz",
     feature = "sweep-24mhz"
 ))]
-/// Single-freq run: write "{mhz}=PASS,REC={mhz}" or "{mhz}=FAIL,REC=1" for script aggregation.
 fn write_single_freq_result(mhz: u8, passed: bool) {
     let buf = unsafe { &mut *core::ptr::addr_of_mut!(SWEEP_RESULTS_BUF) };
     let mut p = 0;
@@ -162,10 +159,14 @@ fn main() -> ! {
 
     defmt::info!("SD card init at 1 MHz...");
     if let Err(_e) = sdio::init_card(&mut sdio, &mut delay) {
-        defmt::panic!("SD card init failed");
+        defmt::warn!("SD card init failed");
+        defmt::info!("HIL_RESULT:sdio_speed_sweep:SKIP");
+        defmt::info!("HIL_DETAIL:no_sd_card");
+        loop {
+            cortex_m::asm::wfi();
+        }
     }
 
-    // Enable DWT cycle counter for throughput measurement (Cortex-M4; optional)
     let mut _dwt_ok = false;
     if DWT::has_cycle_counter() {
         cp.DCB.enable_trace();
@@ -181,9 +182,16 @@ fn main() -> ! {
         feature = "sweep-24mhz"
     ))]
     {
-        // Note: set_bus is private in HAL; run at 400 kHz. When HAL exposes set_bus, restore per-freq switch.
-        defmt::info!("Single-freq test: {} MHz requested, running at 400 kHz, {} blocks", TARGET_MHZ, SWEEP_BLOCKS);
-        let start = if _dwt_ok { Some(DWT::cycle_count()) } else { None };
+        defmt::info!(
+            "Single-freq test: {} MHz requested, running at 400 kHz, {} blocks",
+            TARGET_MHZ,
+            SWEEP_BLOCKS
+        );
+        let start = if _dwt_ok {
+            Some(DWT::cycle_count())
+        } else {
+            None
+        };
         let (read, err) = sdio::test_raw_read(&mut sdio, SWEEP_BLOCKS);
         let passed = err == 0 && read == SWEEP_BLOCKS;
         if passed {
@@ -194,10 +202,17 @@ fn main() -> ! {
                 let secs = cycles as f32 / SYSCLK_HZ as f32;
                 let mb_s = if secs > 0.0 {
                     (SWEEP_BLOCKS as f32 * 512.0) / 1_000_000.0 / secs
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
                 let mb_s_int = mb_s as u32;
                 let mb_s_centi = ((mb_s * 100.0) as u32) % 100;
-                defmt::info!("  400 kHz: PASS ({} blocks, {}.{:02} MB/s)", read, mb_s_int, mb_s_centi);
+                defmt::info!(
+                    "  400 kHz: PASS ({} blocks, {}.{:02} MB/s)",
+                    read,
+                    mb_s_int,
+                    mb_s_centi
+                );
             } else {
                 defmt::info!("  400 kHz: PASS ({} blocks)", read);
             }
@@ -205,8 +220,16 @@ fn main() -> ! {
             defmt::warn!("  400 kHz: FAIL ({} read, {} errors)", read, err);
         }
         write_single_freq_result(TARGET_MHZ, passed);
-        defmt::info!("Done. Buffer written for capture.");
-        loop { cortex_m::asm::wfe(); }
+
+        if passed {
+            defmt::info!("HIL_RESULT:sdio_speed_sweep:PASS");
+        } else {
+            defmt::info!("HIL_RESULT:sdio_speed_sweep:FAIL");
+            defmt::info!("HIL_DETAIL:{}_mhz_errors={}", TARGET_MHZ, err);
+        }
+        loop {
+            cortex_m::asm::wfi();
+        }
     }
 
     #[cfg(not(any(
@@ -217,11 +240,10 @@ fn main() -> ! {
         feature = "sweep-24mhz"
     )))]
     {
-        // Full sweep: try each available data-transfer frequency with a short read test.
         let speeds = sweep_results_order_mhz();
         let mut results: [(bool, u32); 5] = [(false, 0); 5];
 
-        defmt::info!("Speed sweep at 400 kHz (set_bus not public in HAL): {} blocks per slot", SWEEP_BLOCKS);
+        defmt::info!("Speed sweep at 400 kHz: {} blocks per slot", SWEEP_BLOCKS);
         for (i, (_id, label)) in speeds.iter().map(|(a, b)| (*a, *b)).enumerate() {
             let (read, err) = sdio::test_raw_read(&mut sdio, SWEEP_BLOCKS);
             let passed = err == 0 && read == SWEEP_BLOCKS;
@@ -242,24 +264,43 @@ fn main() -> ! {
                 defmt::info!("  {}: FAIL ({} errors)", label, err);
             }
         }
-        let best_mhz = (0..5).rev().find(|&i| results[i].0).map(|i| speeds[i].0).unwrap_or(1);
-        defmt::info!("RECOMMENDATION: Use {} MHz for this card (when HAL exposes set_bus)", best_mhz);
+        let best_mhz = (0..5)
+            .rev()
+            .find(|&i| results[i].0)
+            .map(|i| speeds[i].0)
+            .unwrap_or(1);
+        defmt::info!(
+            "RECOMMENDATION: Use {} MHz for this card (when HAL exposes set_bus)",
+            best_mhz
+        );
         write_results_to_buf(&results, best_mhz);
-        defmt::info!("TRADEOFFS: Lower MHz = more reliable, less wear; higher MHz = faster, may timeout on some cards.");
-        defmt::info!("Copy the results above into docs/SDIO-CLOCK-SPEEDS.md table.");
 
         defmt::info!("Full read test at 400 kHz ({} blocks)...", FULL_TEST_BLOCKS);
         let (blocks_read, errors) = sdio::test_raw_read(&mut sdio, FULL_TEST_BLOCKS);
 
-        defmt::info!("SDIO speed sweep done: {} blocks read, {} errors", blocks_read, errors);
-        if errors == 0 && blocks_read == FULL_TEST_BLOCKS {
-            defmt::info!("PASS");
+        defmt::info!(
+            "SDIO speed sweep done: {} blocks read, {} errors",
+            blocks_read,
+            errors
+        );
+
+        let sweep_pass = results.iter().all(|(p, _)| *p);
+        let full_pass = errors == 0 && blocks_read == FULL_TEST_BLOCKS;
+        if sweep_pass && full_pass {
+            defmt::info!("HIL_RESULT:sdio_speed_sweep:PASS");
         } else {
-            defmt::warn!("FAIL");
+            defmt::info!("HIL_RESULT:sdio_speed_sweep:FAIL");
+            if !sweep_pass {
+                let fail_count = results.iter().filter(|(p, _)| !*p).count();
+                defmt::info!("HIL_DETAIL:sweep_failures={}", fail_count);
+            }
+            if !full_pass {
+                defmt::info!("HIL_DETAIL:full_test_errors={}", errors);
+            }
         }
 
         loop {
-            cortex_m::asm::wfe();
+            cortex_m::asm::wfi();
         }
     }
 }
