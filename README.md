@@ -6,7 +6,7 @@ Quick Start
 
 ```toml
 [dependencies.stm32f469i-disc]
-git = "https://github.com/Amperstrand/stm32f4xx-hal"
+git = "https://github.com/Amperstrand/stm32f469i-disc"
 features = ["defmt"]
 ```
 
