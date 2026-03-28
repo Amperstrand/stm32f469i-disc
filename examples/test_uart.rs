@@ -17,6 +17,7 @@ use cortex_m_rt::entry;
 
 use core::fmt::Write;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use stm32f4xx_hal::nb::block;
 
 static PASSED: AtomicUsize = AtomicUsize::new(0);
 static FAILED: AtomicUsize = AtomicUsize::new(0);
@@ -61,7 +62,7 @@ fn main() -> ! {
 
         // Test 2: TX write single byte
         defmt::info!("TEST usart1_tx_byte: RUNNING");
-        match tx.write(b'U') {
+        match block!(tx.write(b'U')) {
             Ok(()) => pass("usart1_tx_byte"),
             Err(_) => fail("usart1_tx_byte", "write returned error"),
         }
@@ -78,15 +79,15 @@ fn main() -> ! {
         {
             let mut ok = true;
             for i in 0..26u8 {
-                if tx.write(b'A' + i).is_err() {
+                if block!(tx.write(b'A' + i)).is_err() {
                     ok = false;
                     break;
                 }
             }
-            if tx.write(b'\r').is_err() {
+            if block!(tx.write(b'\r')).is_err() {
                 ok = false;
             }
-            if tx.write(b'\n').is_err() {
+            if block!(tx.write(b'\n')).is_err() {
                 ok = false;
             }
             if ok {

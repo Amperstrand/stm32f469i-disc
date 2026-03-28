@@ -41,6 +41,8 @@ use stm32f4xx_hal::ltdc::{DisplayConfig, DisplayController, Layer, PixelFormat};
 
 use otm8009a::{Otm8009A, Otm8009AConfig};
 
+use stm32f4xx_hal::nb::block;
+
 use core::fmt::Write;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -312,7 +314,7 @@ fn test_uart(delay: &mut SysDelay) {
         defmt::info!("TEST usart1_multi: RUNNING");
         let mut ok = true;
         for b in b"HELLO" {
-            if tx.write(*b).is_err() {
+            if block!(tx.write(*b)).is_err() {
                 ok = false;
                 break;
             }
@@ -336,7 +338,7 @@ fn test_timers() {
             let mut ctr = pac::Peripherals::steal().TIM2.counter_us(&mut rcc);
             let start = DWT::cycle_count();
             ctr.start(1.millis()).unwrap();
-            let _ = ctr.wait();
+            block!(ctr.wait()).unwrap();
             let us = DWT::cycle_count().wrapping_sub(start) / 180;
             if us >= 900 && us <= 1500 {
                 pass("tim2_1ms");
@@ -345,17 +347,17 @@ fn test_timers() {
             }
         }
 
-        defmt::info!("TEST tim3_100ms: RUNNING");
+        defmt::info!("TEST tim3_50ms: RUNNING");
         {
-            let mut ctr = pac::Peripherals::steal().TIM3.counter_ms(&mut rcc);
+            let mut ctr = pac::Peripherals::steal().TIM3.counter_us(&mut rcc);
             let start = DWT::cycle_count();
-            ctr.start(100.millis()).unwrap();
-            let _ = ctr.wait();
+            ctr.start(50.millis()).unwrap();
+            block!(ctr.wait()).unwrap();
             let ms = DWT::cycle_count().wrapping_sub(start) / 180_000;
-            if ms >= 95 && ms <= 120 {
-                pass("tim3_100ms");
+            if ms >= 45 && ms <= 70 {
+                pass("tim3_50ms");
             } else {
-                fail("tim3_100ms", "out of range");
+                fail("tim3_50ms", "out of range");
             }
         }
 
@@ -770,6 +772,7 @@ fn main() -> ! {
 
     cp.SCB.invalidate_icache();
     cp.SCB.enable_icache();
+    cp.DCB.enable_trace();
     cp.DWT.enable_cycle_counter();
 
     defmt::info!("=== All-In-One Test Suite ===");
