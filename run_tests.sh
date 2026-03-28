@@ -234,7 +234,7 @@ run_all() {
         exit 2
     fi
 
-    local tests=("test_led" "test_sdram" "test_gpio" "test_uart" "test_timers" "test_dma" "test_lcd" "test_all")
+    local tests=("test_led" "test_sdram" "test_gpio" "test_uart" "test_timers" "test_dma" "test_lcd" "test_touch" "test_all" "hw_diag")
 
     for test in "${tests[@]}"; do
         local timeout=$TIMEOUT_DEFAULT
@@ -246,7 +246,9 @@ run_all() {
             test_uart)  timeout=30 ;;
             test_timers) timeout=30 ;;
             test_dma)   timeout=30 ;;
+            test_touch) timeout=30 ;;
             test_all)   timeout=120 ;;
+            hw_diag)    timeout=180 ;;
         esac
 
         flash_and_run "$test" "$timeout" || true
@@ -320,10 +322,12 @@ if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
     echo "  test_gpio        - PA0 button input, GPIO output echo"
     echo "  test_uart        - USART1 TX byte, formatted output"
     echo "  test_timers      - TIM2/TIM3 delays, PWM, cancel"
-    echo "  test_dma         - DMA2 memory-to-memory transfers"
+    echo "  test_dma         - DMA2 memory-to-memory transfers + timing"
+    echo "  test_touch       - FT6X06 I2C init, chip ID, touch read"
     echo "  test_lcd         - DSI LCD init, color fills, gradient, stability"
     echo "  test_usb         - USB CDC init, echo (needs host, uses RTT)"
     echo "  test_all         - All non-USB tests in one flash (~60s)"
+    echo "  hw_diag          - On-screen diagnostics with embedded-graphics"
     echo "  all              - Run all probe-rs tests above"
     echo ""
     echo "USB standalone test (NO probe-rs, no RTT):"
@@ -350,7 +354,7 @@ else
     } > "$REPORT_FILE"
 
     case "$TARGET" in
-        test_led|test_sdram|test_lcd|test_gpio|test_sdram_full|test_uart|test_timers|test_dma|test_usb|test_all)
+        test_led|test_sdram|test_lcd|test_gpio|test_sdram_full|test_uart|test_timers|test_dma|test_usb|test_all|test_touch|hw_diag)
             timeout=$TIMEOUT_DEFAULT
             [[ "$TARGET" == "test_sdram" ]] && timeout=60
             [[ "$TARGET" == "test_sdram_full" ]] && timeout=600
@@ -361,11 +365,13 @@ else
             [[ "$TARGET" == "test_dma" ]] && timeout=30
             [[ "$TARGET" == "test_usb" ]] && timeout=30
             [[ "$TARGET" == "test_all" ]] && timeout=120
+            [[ "$TARGET" == "test_touch" ]] && timeout=30
+            [[ "$TARGET" == "hw_diag" ]] && timeout=180
             flash_and_run "$TARGET" "$timeout"
             ;;
         *)
             echo -e "${RED}Unknown test: ${TARGET}${NC}"
-            echo "Available: test_led, test_sdram, test_sdram_full, test_gpio, test_uart, test_timers, test_dma, test_usb, test_lcd, test_all, all"
+            echo "Available: test_led, test_sdram, test_sdram_full, test_gpio, test_uart, test_timers, test_dma, test_usb, test_lcd, test_touch, test_all, hw_diag, all"
             echo "USB standalone: ./scripts/usb_test.sh"
             exit 1
             ;;

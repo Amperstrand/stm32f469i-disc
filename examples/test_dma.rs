@@ -18,6 +18,7 @@ use board::hal::{
     rcc::Config,
 };
 
+use cortex_m::peripheral::{Peripherals as CmPeripherals, DWT};
 use cortex_m_rt::entry;
 
 use core::ptr::{addr_of, addr_of_mut};
@@ -99,9 +100,15 @@ unsafe fn dma2_stream0_transfer(dst: *mut u8, src: *const u8, len: usize) {
 
 #[entry]
 fn main() -> ! {
-    if let (Some(p), Some(_cp)) = (pac::Peripherals::take(), cortex_m::Peripherals::take()) {
+    if let (Some(p), Some(_cp)) = (pac::Peripherals::take(), CmPeripherals::take()) {
         let rcc = p.RCC.constrain();
         let _rcc = rcc.freeze(Config::hse(8.MHz()).sysclk(180.MHz()));
+
+        unsafe {
+            let mut cp = CmPeripherals::steal();
+            cp.DCB.enable_trace();
+            cp.DWT.enable_cycle_counter();
+        }
 
         defmt::info!("=== DMA Test Suite ===");
 
@@ -195,6 +202,32 @@ fn main() -> ! {
             }
         }
 
+        // Test 5: DMA timing check (4096B must complete in <10ms)
+        defmt::info!("TEST dma_timing: RUNNING");
+        unsafe {
+            fill_u8(addr_of_mut!(SRC2) as *mut u8, 4096, 0x55);
+            fill_u8(addr_of_mut!(DST2) as *mut u8, 4096, 0);
+            let start = DWT::cycle_count();
+            dma2_stream0_transfer(
+                addr_of_mut!(DST2) as *mut u8,
+                addr_of!(SRC2) as *const u8,
+                4096,
+            );
+            let elapsed = DWT::cycle_count().wrapping_sub(start);
+            let us = elapsed / 180;
+            defmt::info!("  4096B M2M: {}us", us);
+            if us < 10000
+                && verify_u8(
+                    addr_of!(SRC2) as *const u8,
+                    addr_of!(DST2) as *const u8,
+                    4096,
+                )
+            {
+                pass("dma_timing");
+            } else {
+                fail("dma_timing", "too slow or mismatch");
+            }
+        }
         let passed = PASSED.load(Ordering::Relaxed);
         let failed = FAILED.load(Ordering::Relaxed);
         let total = passed + failed;

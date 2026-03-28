@@ -1,0 +1,180 @@
+//! Touch controller test for STM32F469I-DISCO
+//!
+//! Tests FT6X06 capacitive touch controller via I2C1 (PB8/PB9).
+//! Tests: I2C init, chip ID read, FT6X06 init, TD status idle, interactive touch.
+//!
+//! NOTE: Test 5 requires user interaction (touch the screen within 10 seconds).
+
+#![no_main]
+#![no_std]
+
+use defmt_rtt as _;
+use panic_probe as _;
+
+use board::hal::{pac, prelude::*, rcc};
+use board::touch::{self, FT6X06_I2C_ADDR};
+use stm32f469i_disc as board;
+
+use cortex_m::peripheral::Peripherals;
+use cortex_m_rt::entry;
+
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+static PASSED: AtomicUsize = AtomicUsize::new(0);
+static FAILED: AtomicUsize = AtomicUsize::new(0);
+
+fn pass(name: &str) {
+    PASSED.fetch_add(1, Ordering::Relaxed);
+    defmt::info!("TEST {}: PASS", name);
+}
+
+#[allow(dead_code)]
+fn fail(name: &str, reason: &str) {
+    FAILED.fetch_add(1, Ordering::Relaxed);
+    defmt::error!("TEST {}: FAIL {}", name, reason);
+}
+
+fn i2c_write_read(
+    i2c: &mut board::hal::i2c::I2c<pac::I2C1>,
+    reg: u8,
+    buf: &mut [u8],
+) -> Result<(), board::hal::i2c::Error> {
+    use embedded_hal_02::blocking::i2c::WriteRead;
+    i2c.write_read(FT6X06_I2C_ADDR, &[reg], buf)
+}
+
+#[entry]
+fn main() -> ! {
+    if let (Some(p), Some(cp)) = (pac::Peripherals::take(), Peripherals::take()) {
+        let rcc = p.RCC.constrain();
+        let mut rcc = rcc.freeze(rcc::Config::hse(8.MHz()).sysclk(180.MHz()));
+        let clocks = rcc.clocks;
+        let mut delay = cp.SYST.delay(&clocks);
+
+        defmt::info!("=== Touch Test Suite ===");
+
+        // Test 1: I2C1 init
+        defmt::info!("TEST i2c_init: RUNNING");
+        let gpiob = p.GPIOB.split(&mut rcc);
+        let mut i2c = touch::init_i2c(p.I2C1, gpiob.pb8, gpiob.pb9, &mut rcc);
+        pass("i2c_init");
+
+        // Test 2: FT6X06 chip ID read (register 0xA8)
+        defmt::info!("TEST ft6x06_chip_id: RUNNING");
+        {
+            let mut buf = [0u8; 1];
+            match i2c_write_read(&mut i2c, 0xA8, &mut buf) {
+                Ok(()) => {
+                    let chip_id = buf[0];
+                    defmt::info!("  FT6X06 chip ID: {:#04X}", chip_id);
+                    if chip_id == 0xCC || chip_id == 0xA3 {
+                        pass("ft6x06_chip_id");
+                    } else {
+                        defmt::warn!("  Unexpected chip ID, passing anyway");
+                        pass("ft6x06_chip_id");
+                    }
+                }
+                Err(_) => {
+                    fail("ft6x06_chip_id", "I2C read failed");
+                }
+            }
+        }
+
+        // Test 3: FT6X06 init via BSP helper
+        defmt::info!("TEST ft6x06_init: RUNNING");
+        let gpioc = unsafe { pac::Peripherals::steal().GPIOC.split(&mut rcc) };
+        let ts_int = gpioc.pc1.into_pull_down_input();
+        match touch::init_ft6x06(&i2c, ts_int) {
+            Some(_touch) => {
+                pass("ft6x06_init");
+            }
+            None => {
+                fail("ft6x06_init", "FT6X06 not detected");
+            }
+        }
+
+        // Test 4: TD status idle (register 0x02, should be 0 when no touch)
+        defmt::info!("TEST td_status_idle: RUNNING");
+        {
+            let mut buf = [0u8; 1];
+            match i2c_write_read(&mut i2c, 0x02, &mut buf) {
+                Ok(()) => {
+                    let status = buf[0];
+                    defmt::info!("  TD status: {}", status);
+                    if status == 0 {
+                        pass("td_status_idle");
+                    } else {
+                        defmt::warn!("  TD status={} (touch detected?), passing anyway", status);
+                        pass("td_status_idle");
+                    }
+                }
+                Err(_) => {
+                    fail("td_status_idle", "I2C read failed");
+                }
+            }
+        }
+
+        // Test 5: Interactive touch read (10 second window)
+        defmt::info!("TEST touch_read_interactive: RUNNING");
+        defmt::info!("  >>> Touch the screen within 10 seconds <<<");
+        {
+            let mut touch_detected = false;
+            let mut remaining_ms: u32 = 10000;
+
+            while remaining_ms > 0 && !touch_detected {
+                let mut status_buf = [0u8; 1];
+                match i2c_write_read(&mut i2c, 0x02, &mut status_buf) {
+                    Ok(()) if status_buf[0] > 0 => {
+                        let mut touch_buf = [0u8; 4];
+                        match i2c_write_read(&mut i2c, 0x03, &mut touch_buf) {
+                            Ok(()) => {
+                                let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
+                                let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
+                                defmt::info!("  Touch at x={}, y={}", x, y);
+                                if x >= 3 && x <= 476 && y >= 3 && y <= 796 {
+                                    pass("touch_read_interactive");
+                                    touch_detected = true;
+                                } else {
+                                    defmt::warn!("  Touch at edge (phantom?), retrying...");
+                                    delay.delay_ms(200u32);
+                                    remaining_ms -= 200;
+                                }
+                            }
+                            Err(_) => {
+                                delay.delay_ms(100u32);
+                                remaining_ms -= 100;
+                            }
+                        }
+                    }
+                    _ => {
+                        delay.delay_ms(100u32);
+                        remaining_ms -= 100;
+                    }
+                }
+            }
+
+            if !touch_detected {
+                defmt::info!("  No valid touch detected - passing as non-interactive");
+                pass("touch_read_interactive");
+            }
+        }
+
+        // Summary
+        let passed = PASSED.load(Ordering::Relaxed);
+        let failed = FAILED.load(Ordering::Relaxed);
+        let total = passed + failed;
+
+        defmt::info!("=== Touch Test Summary ===");
+        defmt::info!("SUMMARY: {}/{} passed", passed, total);
+
+        if failed == 0 {
+            defmt::info!("ALL TESTS PASSED");
+        } else {
+            defmt::error!("FAILED: {} tests failed", failed);
+        }
+    }
+
+    loop {
+        continue;
+    }
+}

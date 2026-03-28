@@ -32,6 +32,7 @@ Documentation Links
 -------------------
 - [USB Guide](docs/USB-GUIDE.md) - USB OTG FS setup and CDC-ACM
 - [Pin Consumption](docs/PIN-CONSUMPTION.md) - Which pins SDRAM consumes
+- [Display Pixel Formats](docs/DISPLAY-PIXEL-FORMATS.md) - RGB565 vs ARGB8888 tradeoffs
 - [SDIO clock speeds](docs/SDIO-CLOCK-SPEEDS.md) - Specs, tradeoffs, and test results table
 - [Hardware test plan](docs/HARDWARE-TEST-PLAN.md) - Run all examples on the board and record results
 - [Testing Guide](../STM32F469_HAL_BSP_TESTING.md) - Full HAL/BSP testing instructions
@@ -186,9 +187,12 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | `test_gpio` | GPIO, Button | 5 | PASS | Probe |
 | `test_uart` | USART1 | 4 | PASS | Probe |
 | `test_timers` | TIM2, TIM3, DWT | 8 | PASS | Probe |
-| `test_dma` | DMA2 | 4 | PASS | Probe |
+| `test_dma` | DMA2, DWT | 5 | PASS | Probe |
 | `test_lcd` | DSI, LTDC, OTM8009A | 13 | PASS | Probe |
-| `test_all` | All above + RNG + ADC | 41 | PASS | Probe |
+| `test_touch` | I2C1, FT6X06 | 5 | PASS | Probe |
+| `test_all` | All above + RNG + ADC | 43 | PASS | Probe |
+| `hw_diag` | All above (on-screen) | 23 | PASS | Probe |
+| `test_soak` | SDRAM, GPIO | continuous | built | Probe |
 | `test_usb_standalone` | USB OTG FS | 5 | not run | Standalone |
 
 ### Hardware Test Evidence (2026-03-28)
@@ -201,11 +205,13 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | GPIO + Button | test_gpio | 5/5 | PA0 input, multi-port output |
 | UART (USART1) | test_uart | 4/4 | Init, byte TX, formatted, multi-byte (nb::block!) |
 | Timers | test_timers | 8/8 | TIM2 1ms delay, TIM3 50ms delay, PWM, cancel |
-| DMA | test_dma | 4/4 | 64B, 4096B, repeated mem-to-mem transfers |
+| DMA | test_dma | 5/5 | 64B, 4096B, repeated, timing check |
 | LCD (DSI/LTDC) | test_lcd | 13/13 | SDRAM framebuf, LTDC init, DSI init, OTM8009A, RGB fills |
+| Touch (FT6X06) | test_touch | 5/5 | I2C init, chip ID, FT6X06 init, TD status, interactive |
 | RNG | test_all (rng) | 3/3 | Non-zero, uniqueness, consecutive differ |
 | ADC temp sensor | test_all (adc) | 2/2 | Temperature and Vrefint reads |
-| All-in-one | test_all | 41/41 | Single flash, Peripherals::steal() between suites |
+| All-in-one | test_all | 43/43 | Single flash, Peripherals::steal() between suites |
+| On-screen diag | hw_diag | 23/23 | Embedded-graphics display, touch demo |
 | USB CDC | test_usb_standalone | — | Builds clean; requires st-flash + USB cable (not run) |
 
 ### How probe-rs output works

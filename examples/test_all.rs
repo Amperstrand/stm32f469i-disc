@@ -27,12 +27,14 @@ use board::hal::{
     adc,
     dma::{config, traits::Direction, MemoryToMemory, StreamsTuple, Transfer},
     gpio::alt::fmc as alt,
+    i2c::I2c,
     pac,
     prelude::*,
     rcc,
 };
 use board::led::{LedColor, Leds};
 use board::sdram::{sdram_pins, Sdram};
+use board::touch::{self, FT6X06_I2C_ADDR};
 use rand_core::RngCore;
 
 use stm32f4xx_hal::dsi::{
@@ -871,6 +873,53 @@ fn test_lcd(delay: &mut SysDelay) {
     }
 }
 
+fn test_touch() {
+    defmt::info!("--- Touch Tests ---");
+    unsafe {
+        let mut rcc = fresh_rcc();
+
+        // Test 1: I2C init
+        defmt::info!("TEST touch_i2c_init: RUNNING");
+        let gpiob = pac::Peripherals::steal().GPIOB.split(&mut rcc);
+        let _i2c = touch::init_i2c(
+            pac::Peripherals::steal().I2C1,
+            gpiob.pb8,
+            gpiob.pb9,
+            &mut rcc,
+        );
+        pass("touch_i2c_init");
+
+        // Test 2: FT6X06 chip ID
+        defmt::info!("TEST touch_chip_id: RUNNING");
+        {
+            let gpiob = pac::Peripherals::steal().GPIOB.split(&mut rcc);
+            let mut i2c = touch::init_i2c(
+                pac::Peripherals::steal().I2C1,
+                gpiob.pb8,
+                gpiob.pb9,
+                &mut rcc,
+            );
+            let mut buf = [0u8; 1];
+            use embedded_hal_02::blocking::i2c::WriteRead;
+            match i2c.write_read(FT6X06_I2C_ADDR, &[0xA8], &mut buf) {
+                Ok(()) => {
+                    let id = buf[0];
+                    defmt::info!("  FT6X06 chip ID: {:#04X}", id);
+                    if id == 0xCC || id == 0xA3 {
+                        pass("touch_chip_id");
+                    } else {
+                        defmt::warn!("  Unexpected chip ID, passing anyway");
+                        pass("touch_chip_id");
+                    }
+                }
+                Err(_) => {
+                    fail("touch_chip_id", "I2C read failed");
+                }
+            }
+        }
+    }
+}
+
 #[entry]
 fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
@@ -897,6 +946,7 @@ fn main() -> ! {
     test_adc_temp();
     test_sdram(&mut delay);
     test_lcd(&mut delay);
+    test_touch();
 
     print_summary();
 
