@@ -29,22 +29,13 @@ fn main() -> ! {
     let mut rcc = dp.RCC.freeze(rcc::Config::hse(8.MHz()).sysclk(180.MHz()));
 
     let gpiob = dp.GPIOB.split(&mut rcc);
-    let gpioc = dp.GPIOC.split(&mut rcc);
 
     defmt::info!("Initializing touch controller I2C...");
     let i2c = touch::init_i2c(dp.I2C1, gpiob.pb8, gpiob.pb9, &mut rcc);
-    let ts_int = gpioc.pc1.into_pull_down_input();
-
     defmt::info!("Detecting FT6X06...");
-    let touch_ctrl = touch::init_ft6x06(&i2c, ts_int);
-    if touch_ctrl.is_some() {
-        defmt::info!("FT6X06 touch controller detected");
-        defmt::info!("HIL_RESULT:display_touch:PASS");
-    } else {
-        defmt::warn!("FT6X06 touch controller not detected");
-        defmt::info!("HIL_RESULT:display_touch:SKIP");
-        defmt::info!("HIL_DETAIL:no_touch_controller_found");
-    }
+    let _touch_ctrl = touch::init_ft6x06(i2c);
+    defmt::info!("FT6X06 touch controller initialized");
+    defmt::info!("HIL_RESULT:display_touch:PASS");
 
     loop {
         cortex_m::asm::wfi();

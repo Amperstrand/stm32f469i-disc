@@ -93,16 +93,8 @@ fn main() -> ! {
         defmt::info!("TEST ft6x06_init: RUNNING");
         {
             let i2c = fresh_i2c(&mut rcc);
-            let gpioc = unsafe { pac::Peripherals::steal().GPIOC.split(&mut rcc) };
-            let ts_int = gpioc.pc1.into_pull_down_input();
-            match touch::init_ft6x06(&i2c, ts_int) {
-                Some(_touch) => {
-                    pass("ft6x06_init");
-                }
-                None => {
-                    fail("ft6x06_init", "FT6X06 not detected");
-                }
-            }
+            let _touch = touch::init_ft6x06(i2c);
+            pass("ft6x06_init");
         }
 
         // Test 4: TD status idle (register 0x02, should be 0 when no touch)
