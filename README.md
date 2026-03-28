@@ -176,17 +176,37 @@ You can also run the Python test standalone:
 
 ### Test Coverage Summary
 
-| Test | Peripherals | Tests | Mode |
+All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-28.
+
+| Test | Peripherals | Tests | Device | Mode |
+|---|---|---|---|---|
+| `test_led` | GPIO | 16 | PASS | Probe |
+| `test_sdram` | FMC | 14 | PASS | Probe |
+| `test_sdram_full` | FMC | 13 | PASS | Probe |
+| `test_gpio` | GPIO, Button | 5 | PASS | Probe |
+| `test_uart` | USART1 | 4 | PASS | Probe |
+| `test_timers` | TIM2, TIM3, DWT | 8 | PASS | Probe |
+| `test_dma` | DMA2 | 4 | PASS | Probe |
+| `test_lcd` | DSI, LTDC, OTM8009A | 13 | PASS | Probe |
+| `test_all` | All above + RNG + ADC | 41 | PASS | Probe |
+| `test_usb_standalone` | USB OTG FS | 5 | not run | Standalone |
+
+### Hardware Test Evidence (2026-03-28)
+
+| Subsystem | Test | Result | Details |
 |---|---|---|---|
-| `test_led` | GPIO | 16 | Probe |
-| `test_sdram` | FMC | 14 | Probe |
-| `test_gpio` | GPIO, Button | 5 | Probe |
-| `test_uart` | USART1 | 4 | Probe |
-| `test_timers` | TIM2, TIM3, DWT | 8 | Probe |
-| `test_dma` | DMA2 | 4 | Probe |
-| `test_lcd` | DSI, LTDC, OTM8009A | 13 | Probe |
-| `test_all` | All above + RNG + ADC | ~42 | Probe |
-| `test_usb_standalone` | USB OTG FS | 5 | Standalone |
+| LEDs (4x GPIO) | test_led | 16/16 | Individual, all-on/off, rapid toggle, by-color |
+| SDRAM (16MB FMC) | test_sdram | 14/14 | Init, checkerboard, inverse, address, random, boundary |
+| SDRAM (exhaustive) | test_sdram_full | 13/13 | Walking bits, March C, multi-pass random, byte/halfword-level |
+| GPIO + Button | test_gpio | 5/5 | PA0 input, multi-port output |
+| UART (USART1) | test_uart | 4/4 | Init, byte TX, formatted, multi-byte (nb::block!) |
+| Timers | test_timers | 8/8 | TIM2 1ms delay, TIM3 50ms delay, PWM, cancel |
+| DMA | test_dma | 4/4 | 64B, 4096B, repeated mem-to-mem transfers |
+| LCD (DSI/LTDC) | test_lcd | 13/13 | SDRAM framebuf, LTDC init, DSI init, OTM8009A, RGB fills |
+| RNG | test_all (rng) | 3/3 | Non-zero, uniqueness, consecutive differ |
+| ADC temp sensor | test_all (adc) | 2/2 | Temperature and Vrefint reads |
+| All-in-one | test_all | 41/41 | Single flash, Peripherals::steal() between suites |
+| USB CDC | test_usb_standalone | — | Builds clean; requires st-flash + USB cable (not run) |
 
 ### How probe-rs output works
 Tests output via `defmt` over RTT to the ST-Link debug probe. `probe-rs run`

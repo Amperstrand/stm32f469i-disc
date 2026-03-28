@@ -10,11 +10,31 @@ This BSP is no longer actively developed. The micronuts firmware has been ported
 
 | Commit | Notes |
 |--------|-------|
-| `da9fdb2` (main HEAD) | LTDC init refactors, double-framebuffer merge, ForceNt35510 hint |
+| `5290ae7` (main HEAD) | USB standalone test, RNG/ADC tests, host companion |
+| `da9fdb2` | LTDC init refactors, double-framebuffer merge, ForceNt35510 hint |
 
 ## Hardware Test Evidence
 
 All testing performed on STM32F469I-Discovery board (B08 revision, NT35510 panel).
+
+### Test Date: 2026-03-28 (comprehensive BSP test suite)
+
+Automated test suite using probe-rs + defmt/RTT. All tests use blocking `stm32f4xx-hal` 0.23.
+
+| Subsystem | Status | Evidence | Tests |
+|-----------|--------|----------|-------|
+| **LEDs (GPIO)** | PASS | test_led: 16/16 | Individual, all-on/off, rapid toggle, by-color |
+| **SDRAM (fast)** | PASS | test_sdram: 14/14 | Init, checkerboard, inverse, address, random, boundary |
+| **SDRAM (exhaustive)** | PASS | test_sdram_full: 13/13 | Walking bits, March C, multi-pass random, byte/halfword |
+| **GPIO + Button** | PASS | test_gpio: 5/5 | PA0 input, multi-port output |
+| **UART (USART1)** | PASS | test_uart: 4/4 | Init, byte TX, formatted, multi-byte |
+| **Timers** | PASS | test_timers: 8/8 | TIM2 1ms, TIM3 50ms, PWM, cancel |
+| **DMA** | PASS | test_dma: 4/4 | 64B, 4096B, repeated mem-to-mem |
+| **LCD (DSI/LTDC)** | PASS | test_lcd: 13/13 | SDRAM framebuf, LTDC, DSI, OTM8009A, RGB fills |
+| **RNG** | PASS | test_all: 3/3 | Non-zero, uniqueness, consecutive differ |
+| **ADC temp sensor** | PASS | test_all: 2/2 | Temperature and Vrefint |
+| **All-in-one** | PASS | test_all: 41/41 | Single flash, all suites via Peripherals::steal() |
+| **USB CDC** | BUILT | test_usb_standalone builds clean | Requires st-flash + USB cable; not run |
 
 ### Test Date: 2026-03-25/26
 
