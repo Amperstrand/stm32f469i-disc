@@ -58,6 +58,7 @@ cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 static_cell = "2.1.1"
 usb-device = "0.3.1"
 usbd-serial = "0.2.0"
+rand_core = "0.6"
 
 [features]
 default = ["defmt", "touch"]

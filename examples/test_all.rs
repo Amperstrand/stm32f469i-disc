@@ -24,6 +24,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 use board::hal::{
+    adc,
     dma::{config, traits::Direction, MemoryToMemory, StreamsTuple, Transfer},
     gpio::alt::fmc as alt,
     pac,
@@ -32,6 +33,7 @@ use board::hal::{
 };
 use board::led::{LedColor, Leds};
 use board::sdram::{sdram_pins, Sdram};
+use rand_core::RngCore;
 
 use stm32f4xx_hal::dsi::{
     ColorCoding, DsiChannel, DsiCmdModeTransmissionKind, DsiConfig, DsiHost, DsiInterrupts,
@@ -460,6 +462,115 @@ fn test_dma() {
     }
 }
 
+fn test_rng() {
+    defmt::info!("--- RNG Tests ---");
+    unsafe {
+        let mut rcc = pac::Peripherals::steal().RCC.constrain().freeze(
+            rcc::Config::hse(8.MHz())
+                .sysclk(180.MHz())
+                .require_pll48clk(),
+        );
+        let mut rng = pac::Peripherals::steal().RNG.constrain(&mut rcc);
+
+        // Test 1: Read 8 words, verify not all zeros
+        defmt::info!("TEST rng_not_zeros: RUNNING");
+        {
+            let mut all_zero = true;
+            for _ in 0..8 {
+                let val = rng.next_u32();
+                if val != 0 {
+                    all_zero = false;
+                    break;
+                }
+            }
+            if !all_zero {
+                pass("rng_not_zeros");
+            } else {
+                fail("rng_not_zeros", "all zeros");
+            }
+        }
+
+        // Test 2: Read 64 words, check uniqueness
+        defmt::info!("TEST rng_uniqueness: RUNNING");
+        {
+            let mut buf = [0u32; 64];
+            for slot in buf.iter_mut() {
+                *slot = rng.next_u32();
+            }
+            let mut unique = 0usize;
+            for i in 0..64 {
+                let mut is_unique = true;
+                for j in 0..i {
+                    if buf[j] == buf[i] {
+                        is_unique = false;
+                        break;
+                    }
+                }
+                if is_unique {
+                    unique += 1;
+                }
+            }
+            if unique >= 32 {
+                pass("rng_uniqueness");
+            } else {
+                fail("rng_uniqueness", "low uniqueness");
+            }
+        }
+
+        // Test 3: Consecutive reads differ
+        defmt::info!("TEST rng_consecutive_differ: RUNNING");
+        {
+            let v1 = rng.next_u32();
+            let v2 = rng.next_u32();
+            if v1 != v2 {
+                pass("rng_consecutive_differ");
+            } else {
+                fail("rng_consecutive_differ", "identical reads");
+            }
+        }
+    }
+}
+
+fn test_adc_temp() {
+    defmt::info!("--- ADC Internal Temp Sensor ---");
+    unsafe {
+        let mut rcc = fresh_rcc();
+        let adc1 = pac::Peripherals::steal().ADC1;
+        let mut adc = adc::Adc::new(adc1, true, Default::default(), &mut rcc);
+        adc.calibrate();
+        adc.enable_temperature_and_vref();
+
+        // Test 1: Read temperature sensor
+        defmt::info!("TEST adc_temp_read: RUNNING");
+        {
+            let sample = adc.convert(&mut adc::Temperature, adc::config::SampleTime::Cycles_480);
+            // Raw ADC value for temp sensor at 12-bit resolution
+            // Typical range: 0-4095, room temp is roughly 500-800
+            if sample > 100 && sample < 4095 {
+                defmt::info!("  ADC temp raw: {}", sample);
+                pass("adc_temp_read");
+            } else {
+                fail("adc_temp_read", "out of range");
+            }
+        }
+
+        // Test 2: Read VREFINT
+        defmt::info!("TEST adc_vrefint_read: RUNNING");
+        {
+            let sample = adc.convert(&mut adc::Vref, adc::config::SampleTime::Cycles_480);
+            // VREFINT should be ~1500 (1.2V / 3.3V * 4095)
+            if sample > 500 && sample < 3000 {
+                defmt::info!("  ADC vrefint raw: {}", sample);
+                pass("adc_vrefint_read");
+            } else {
+                fail("adc_vrefint_read", "out of range");
+            }
+        }
+
+        adc.disable_temperature_and_vref();
+    }
+}
+
 fn test_sdram(delay: &mut SysDelay) {
     defmt::info!("--- SDRAM Fast Tests ---");
     unsafe {
@@ -782,6 +893,8 @@ fn main() -> ! {
     test_uart(&mut delay);
     test_timers();
     test_dma();
+    test_rng();
+    test_adc_temp();
     test_sdram(&mut delay);
     test_lcd(&mut delay);
 

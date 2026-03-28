@@ -36,24 +36,50 @@ Documentation Links
 - [Hardware test plan](docs/HARDWARE-TEST-PLAN.md) - Run all examples on the board and record results
 - [Testing Guide](../STM32F469_HAL_BSP_TESTING.md) - Full HAL/BSP testing instructions
 
+Board Hardware
+--------------
+The STM32F469I-DISCO has these on-board peripherals:
+
+| Peripheral | Chip | Interface | BSP Status |
+|---|---|---|---|
+| 16MB SDRAM | IS42S32400F-6BL | FMC | Supported, tested |
+| 4" TFT LCD (480x800) | NT35510/OTM8009A | MIPI DSI + LTDC | Supported, tested |
+| Capacitive touch | FT6X06 | I2C1 | Supported, tested |
+| USB OTG FS | Built-in | PA11/PA12 | Supported, tested |
+| 4 User LEDs | - | GPIO | Supported, tested |
+| User button | - | PA0 | Supported, tested |
+| MicroSD slot | - | SDIO | Supported, untested |
+| Hardware RNG | Built-in | RNG | Supported, tested |
+| Internal temp sensor | Built-in | ADC1 | MCU internal, tested |
+| SAI Audio DAC | External | SAI | Not implemented |
+| 3 MEMS microphones | - | DFSDM | Not implemented |
+| 16MB QSPI NOR Flash | - | QUADSPI | Not implemented |
+
+Not on this board: no accelerometer, no gyroscope, no external temperature sensor.
+
 Peripheral Support
 ------------------
 - [x] Green, Orange, Red, Blue user LEDs
 - [x] 16MB SDRAM on FMC interface
 - [x] NT35510/OTM8009A LCD with DSI interface (auto-detected)
 - [x] FT6X06 touch controller (I2C)
-- [ ] Other on-board peripherals
+- [x] USB OTG FS (CDC-ACM)
+- [x] Hardware RNG
+- [x] Internal ADC temperature sensor
+- [ ] SAI Audio DAC + headphone jack
+- [ ] DFSDM MEMS microphones (x3)
+- [ ] QSPI NOR Flash
 
 Examples
 --------
-- `gpio_hal_blinky` — Cycle through user LEDs
-- `fmc_sdram_test` — Read/write SDRAM test with pattern verification
-- `display_dsi_lcd` — Rolling gradient animation on DSI display
-- `display_hello_eg` — Text and shapes using embedded-graphics
-- `display_touch` — Touch input with swipe gesture detection
-- `usb_cdc_serial` — USB CDC-ACM virtual serial port echo test
-- `sdio_raw_test` — SD card init and raw block read test (10 MiB at 1 MHz)
-- `sdio_speed_sweep` — **Optional** SD clock speed test (1/4/8/12/24 MHz); requires `--features sdio-speed-test`. Run sparingly; see [SDIO clock speeds](docs/SDIO-CLOCK-SPEEDS.md) for tradeoffs and result recording.
+- `gpio_hal_blinky` - Cycle through user LEDs
+- `fmc_sdram_test` - Read/write SDRAM test with pattern verification
+- `display_dsi_lcd` - Rolling gradient animation on DSI display
+- `display_hello_eg` - Text and shapes using embedded-graphics
+- `display_touch` - Touch input with swipe gesture detection
+- `usb_cdc_serial` - USB CDC-ACM virtual serial port echo test
+- `sdio_raw_test` - SD card init and raw block read test (10 MiB at 1 MHz)
+- `sdio_speed_sweep` - **Optional** SD clock speed test; requires `--features sdio-speed-test`
 
 Building
 --------
@@ -71,12 +97,11 @@ cargo build --example fmc_sdram_test
 cargo build --example display_dsi_lcd
 cargo build --example display_hello_eg --features framebuffer
 cargo build --example display_touch
-cargo build --example usb_cdc_serial --features usb_fs
+cargo build --example usb_cdc_serial
 cargo build --example sdio_raw_test
-cargo build --example sdio_speed_sweep --features sdio-speed-test  # optional; run sparingly
 ```
 
-Binaries are under `target/thumbv7em-none-eabihf/debug/examples/<name>`.
+Binaries are under `target/thumbv7em-none-eabihf/release/examples/<name>`.
 
 Running on device (remote)
 --------------------------
@@ -85,18 +110,16 @@ To run on the board from a host that has the probe (e.g. Ubuntu with probe-rs):
 1. Copy the built ELF to the host and run with probe-rs:
 
 ```bash
-# From this repo (after building)
-scp target/thumbv7em-none-eabihf/debug/examples/gpio_hal_blinky ubuntu@192.168.13.246:/tmp/
+scp target/thumbv7em-none-eabihf/release/examples/gpio_hal_blinky ubuntu@192.168.13.246:/tmp/
 
 # On ubuntu@192.168.13.246
-/home/ubuntu/.local/bin/probe-rs run --chip STM32F469NIHx /tmp/gpio_hal_blinky
+probe-rs run --chip STM32F469NIHx /tmp/gpio_hal_blinky
 ```
 
 2. Or use the deploy-and-run script (builds, scps, and runs in one go):
 
 ```bash
 ./scripts/deploy-and-run.sh gpio_hal_blinky
-# Other examples: fmc_sdram_test, display_dsi_lcd, display_hello_eg, display_touch, usb_cdc_serial, sdio_raw_test, sdio_speed_sweep
 ```
 
 Running locally
@@ -109,9 +132,12 @@ cargo run --example gpio_hal_blinky
 
 Testing
 -------
+Two testing modes are supported:
+
+### Mode 1: Debug Probe Tests (probe-rs + RTT)
 Requires an ST-Link probe and `probe-rs` installed.
 
-Run the full fast test suite (~60s, flashes and runs all tests automatically):
+Run the full test suite (~2 min, flashes and runs all tests automatically):
 
     ./run_tests.sh
 
@@ -120,23 +146,59 @@ Run individual tests:
     ./run_tests.sh test_led         # LED on/off, toggle, patterns (16 tests)
     ./run_tests.sh test_sdram       # Fast SDRAM spot-checks (14 tests, ~10s)
     ./run_tests.sh test_sdram_full  # Exhaustive SDRAM tests, all 16MB (16 tests, ~3-5min)
-    ./run_tests.sh test_gpio        # PA0 button input, GPIO output echo (5 tests)
+    ./run_tests.sh test_gpio        # PA0 button input, GPIO output (5 tests)
     ./run_tests.sh test_uart        # USART1 TX, formatted output (4 tests)
-    ./run_tests.sh test_timers      # TIM2/TIM3 delays, PWM, cancel (6 tests)
-    ./run_tests.sh test_dma         # DMA2 memory-to-memory transfers (4 tests)
-    ./run_tests.sh test_lcd         # DSI LCD init, color fills, gradient (13 tests)
-    ./run_tests.sh test_usb         # USB CDC init, echo (needs host, 3 tests)
-    ./run_tests.sh test_all         # All non-USB tests in one flash (~30 tests, ~60s)
+    ./run_tests.sh test_timers      # TIM2/TIM3 delays, PWM, cancel (8 tests)
+    ./run_tests.sh test_dma         # DMA2 mem-to-mem transfers (4 tests)
+    ./run_tests.sh test_lcd         # DSI LCD init, color fills (13 tests)
+    ./run_tests.sh test_all         # All non-USB in one flash (~42 tests, ~60s)
 
 Results are saved to `test-results/`.
 
-The fast SDRAM test (`test_sdram`) thoroughly tests the first 256KB then spot-checks
-16 evenly-spaced regions, scattered random probes, and the last 64KB across all 16MB.
-The full variant (`test_sdram_full`) runs walking 1s/0s, checkerboard, address patterns,
-March C-, and multi-pass random over the entire 16MB.
+### Mode 2: USB Standalone Test (no debug probe)
+USB CDC timing is sensitive. When probe-rs is attached for RTT logging, it halts
+the CPU periodically, causing USB disconnects. For reliable USB testing:
 
-The `test_all` binary runs LED, GPIO, UART, Timer, DMA, SDRAM, and LCD tests in a
-single flash, using `Peripherals::steal()` to re-acquire hardware between suites.
+    ./scripts/usb_test.sh [duration_seconds]
+
+This script:
+1. Builds `test_usb_standalone` (no RTT, no defmt, no panic_probe)
+2. Flashes with `st-flash --connect-under-reset` (not probe-rs)
+3. Resets the device
+4. Runs `tests/host/test_usb_host.py` to test USB CDC via serial
+
+The Python host test verifies: enumeration, PING/PONG echo, multi-byte echo,
+sustained stress, and graceful shutdown.
+
+You can also run the Python test standalone:
+
+    python3 tests/host/test_usb_host.py --device /dev/ttyACM0 --duration 60
+
+### Test Coverage Summary
+
+| Test | Peripherals | Tests | Mode |
+|---|---|---|---|
+| `test_led` | GPIO | 16 | Probe |
+| `test_sdram` | FMC | 14 | Probe |
+| `test_gpio` | GPIO, Button | 5 | Probe |
+| `test_uart` | USART1 | 4 | Probe |
+| `test_timers` | TIM2, TIM3, DWT | 8 | Probe |
+| `test_dma` | DMA2 | 4 | Probe |
+| `test_lcd` | DSI, LTDC, OTM8009A | 13 | Probe |
+| `test_all` | All above + RNG + ADC | ~42 | Probe |
+| `test_usb_standalone` | USB OTG FS | 5 | Standalone |
+
+### How probe-rs output works
+Tests output via `defmt` over RTT to the ST-Link debug probe. `probe-rs run`
+captures this and prints to the terminal. The format is parseable:
+
+    TEST <name>: PASS
+    TEST <name>: FAIL <reason>
+    SUMMARY: X/Y passed
+    ALL TESTS PASSED
+
+The runner script (`run_tests.sh`) detects `SUMMARY` in the RTT output,
+kills probe-rs (since the target loops forever), and parses pass/fail counts.
 
 Credits
 -------

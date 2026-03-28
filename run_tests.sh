@@ -234,7 +234,7 @@ run_all() {
         exit 2
     fi
 
-    local tests=("test_led" "test_sdram" "test_gpio" "test_uart" "test_timers" "test_dma" "test_lcd")
+    local tests=("test_led" "test_sdram" "test_gpio" "test_uart" "test_timers" "test_dma" "test_lcd" "test_all")
 
     for test in "${tests[@]}"; do
         local timeout=$TIMEOUT_DEFAULT
@@ -246,6 +246,7 @@ run_all() {
             test_uart)  timeout=30 ;;
             test_timers) timeout=30 ;;
             test_dma)   timeout=30 ;;
+            test_all)   timeout=120 ;;
         esac
 
         flash_and_run "$test" "$timeout" || true
@@ -312,7 +313,7 @@ fi
 if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
     echo "Usage: $0 [test_name|all] [--no-flash]"
     echo ""
-    echo "Available tests:"
+    echo "Available tests (run via probe-rs + RTT):"
     echo "  test_led         - LED on/off, toggle, patterns"
     echo "  test_sdram       - Fast SDRAM spot-checks (~10s)"
     echo "  test_sdram_full  - Exhaustive SDRAM tests, all 16MB (~3-5min)"
@@ -321,9 +322,14 @@ if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
     echo "  test_timers      - TIM2/TIM3 delays, PWM, cancel"
     echo "  test_dma         - DMA2 memory-to-memory transfers"
     echo "  test_lcd         - DSI LCD init, color fills, gradient, stability"
-    echo "  test_usb         - USB CDC init, echo (needs host interaction)"
+    echo "  test_usb         - USB CDC init, echo (needs host, uses RTT)"
     echo "  test_all         - All non-USB tests in one flash (~60s)"
-    echo "  all              - Run fast tests: led, sdram, gpio, uart, timers, dma, lcd"
+    echo "  all              - Run all probe-rs tests above"
+    echo ""
+    echo "USB standalone test (NO probe-rs, no RTT):"
+    echo "  ./scripts/usb_test.sh [duration_seconds]"
+    echo "  Flashes with st-flash, tests via USB CDC serial only."
+    echo "  This is the correct way to test USB timing integrity."
     echo ""
     echo "Options:"
     echo "  --no-flash  Skip flashing (re-run already-flashed firmware)"
@@ -360,6 +366,7 @@ else
         *)
             echo -e "${RED}Unknown test: ${TARGET}${NC}"
             echo "Available: test_led, test_sdram, test_sdram_full, test_gpio, test_uart, test_timers, test_dma, test_usb, test_lcd, test_all, all"
+            echo "USB standalone: ./scripts/usb_test.sh"
             exit 1
             ;;
     esac
