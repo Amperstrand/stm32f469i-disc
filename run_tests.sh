@@ -326,7 +326,7 @@ if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
     echo "  test_touch       - FT6X06 I2C init, chip ID, touch read"
     echo "  test_lcd         - DSI LCD init, color fills, gradient, stability"
     echo "  test_usb         - USB CDC init, echo (needs host, uses RTT)"
-    echo "  test_all         - All non-USB tests in one flash (~60s)"
+    echo "  test_all         - All non-USB tests in one flash (~60s, 44 tests)"
     echo "  hw_diag          - On-screen diagnostics with embedded-graphics"
     echo "  all              - Run all probe-rs tests above"
     echo ""

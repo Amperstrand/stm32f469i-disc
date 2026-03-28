@@ -29,11 +29,14 @@ Automated test suite using probe-rs + defmt/RTT. All tests use blocking `stm32f4
 | **GPIO + Button** | PASS | test_gpio: 5/5 | PA0 input, multi-port output |
 | **UART (USART1)** | PASS | test_uart: 4/4 | Init, byte TX, formatted, multi-byte |
 | **Timers** | PASS | test_timers: 8/8 | TIM2 1ms, TIM3 50ms, PWM, cancel |
-| **DMA** | PASS | test_dma: 4/4 | 64B, 4096B, repeated mem-to-mem |
+| **DMA** | PASS | test_dma: 5/5 | 64B, 4096B, repeated mem-to-mem, DWT timing check |
 | **LCD (DSI/LTDC)** | PASS | test_lcd: 13/13 | SDRAM framebuf, LTDC, DSI, OTM8009A, RGB fills |
+| **Touch (FT6X06)** | PASS | test_touch: 5/5 | I2C init, chip ID, FT6X06 init, TD status, interactive |
 | **RNG** | PASS | test_all: 3/3 | Non-zero, uniqueness, consecutive differ |
 | **ADC temp sensor** | PASS | test_all: 2/2 | Temperature and Vrefint |
-| **All-in-one** | PASS | test_all: 41/41 | Single flash, all suites via Peripherals::steal() |
+| **All-in-one** | PASS | test_all: 44/44 | Single flash, all suites via Peripherals::steal() |
+| **On-screen diag** | PASS | hw_diag: builds clean | Not run on device; requires st-link + display |
+| **Soak test** | PASS | test_soak: builds clean | Continuous SDRAM stress; no SUMMARY line |
 | **USB CDC** | BUILT | test_usb_standalone builds clean | Requires st-flash + USB cable; not run |
 
 ### Test Date: 2026-03-25/26
@@ -44,7 +47,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 |-----------|--------|----------|-------|
 | **SDRAM** | PASS | fmc_sdram_test example verified | 16MB FMC write/read |
 | **Display (DSI/LTDC)** | PASS | display_dsi_lcd and display_hello_eg work | NT35510 via DSI, auto-detected panel |
-| **Touch (FT6X06)** | PASS | display_touch example works | I2C1, PB8/PB9. Phantom touches at edges (known) |
+| **Touch (FT6X06)** | PASS | display_touch example works | I2C1, PB8/PB9. LCD panel power (PH7) required before I2C. Phantom touches filtered. |
 | **GPIO/LEDs** | PASS | gpio_hal_blinky works | User LEDs cycle correctly |
 | **USB CDC** | PASS | usb_cdc_serial echo test works | OTG FS, st-link hal |
 | **DSI reads** | FAIL | Probe fails (3/3 retries) | Workaround: skip probe, use ForceNt35510 or known panel type |

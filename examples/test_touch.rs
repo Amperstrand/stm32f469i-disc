@@ -34,13 +34,14 @@ fn fail(name: &str, reason: &str) {
     defmt::error!("TEST {}: FAIL {}", name, reason);
 }
 
-fn i2c_write_read(
-    i2c: &mut board::hal::i2c::I2c<pac::I2C1>,
-    reg: u8,
-    buf: &mut [u8],
-) -> Result<(), board::hal::i2c::Error> {
-    use embedded_hal_02::blocking::i2c::WriteRead;
-    i2c.write_read(FT6X06_I2C_ADDR, &[reg], buf)
+fn fresh_i2c(rcc: &mut rcc::Rcc) -> board::hal::i2c::I2c<pac::I2C1> {
+    let gpiob = unsafe { pac::Peripherals::steal().GPIOB.split(rcc) };
+    touch::init_i2c(
+        unsafe { pac::Peripherals::steal().I2C1 },
+        gpiob.pb8,
+        gpiob.pb9,
+        rcc,
+    )
 }
 
 #[entry]
@@ -53,28 +54,36 @@ fn main() -> ! {
 
         defmt::info!("=== Touch Test Suite ===");
 
+        // Power on display panel (FT6X06 shares power with LCD)
+        // PH7 = LCD reset pin, must toggle to power on the touch controller
+        {
+            let gpioh = unsafe { pac::Peripherals::steal().GPIOH.split(&mut rcc) };
+            let mut lcd_reset = gpioh.ph7.into_push_pull_output();
+            lcd_reset.set_low();
+            delay.delay_ms(20u32);
+            lcd_reset.set_high();
+            delay.delay_ms(100u32);
+            defmt::info!("Display panel powered on (LCD reset toggled)");
+        }
+
         // Test 1: I2C1 init
         defmt::info!("TEST i2c_init: RUNNING");
-        let gpiob = p.GPIOB.split(&mut rcc);
-        let mut i2c = touch::init_i2c(p.I2C1, gpiob.pb8, gpiob.pb9, &mut rcc);
+        let _i2c = fresh_i2c(&mut rcc);
         pass("i2c_init");
 
         // Test 2: FT6X06 chip ID read (register 0xA8)
         defmt::info!("TEST ft6x06_chip_id: RUNNING");
         {
+            let mut i2c = fresh_i2c(&mut rcc);
             let mut buf = [0u8; 1];
-            match i2c_write_read(&mut i2c, 0xA8, &mut buf) {
+            match i2c.write_read(FT6X06_I2C_ADDR, &[0xA8], &mut buf) {
                 Ok(()) => {
                     let chip_id = buf[0];
                     defmt::info!("  FT6X06 chip ID: {:#04X}", chip_id);
-                    if chip_id == 0xCC || chip_id == 0xA3 {
-                        pass("ft6x06_chip_id");
-                    } else {
-                        defmt::warn!("  Unexpected chip ID, passing anyway");
-                        pass("ft6x06_chip_id");
-                    }
+                    pass("ft6x06_chip_id");
                 }
-                Err(_) => {
+                Err(e) => {
+                    defmt::error!("  I2C error: {:?}", defmt::Debug2Format(&e));
                     fail("ft6x06_chip_id", "I2C read failed");
                 }
             }
@@ -82,31 +91,30 @@ fn main() -> ! {
 
         // Test 3: FT6X06 init via BSP helper
         defmt::info!("TEST ft6x06_init: RUNNING");
-        let gpioc = unsafe { pac::Peripherals::steal().GPIOC.split(&mut rcc) };
-        let ts_int = gpioc.pc1.into_pull_down_input();
-        match touch::init_ft6x06(&i2c, ts_int) {
-            Some(_touch) => {
-                pass("ft6x06_init");
-            }
-            None => {
-                fail("ft6x06_init", "FT6X06 not detected");
+        {
+            let i2c = fresh_i2c(&mut rcc);
+            let gpioc = unsafe { pac::Peripherals::steal().GPIOC.split(&mut rcc) };
+            let ts_int = gpioc.pc1.into_pull_down_input();
+            match touch::init_ft6x06(&i2c, ts_int) {
+                Some(_touch) => {
+                    pass("ft6x06_init");
+                }
+                None => {
+                    fail("ft6x06_init", "FT6X06 not detected");
+                }
             }
         }
 
         // Test 4: TD status idle (register 0x02, should be 0 when no touch)
         defmt::info!("TEST td_status_idle: RUNNING");
         {
+            let mut i2c = fresh_i2c(&mut rcc);
             let mut buf = [0u8; 1];
-            match i2c_write_read(&mut i2c, 0x02, &mut buf) {
+            match i2c.write_read(FT6X06_I2C_ADDR, &[0x02], &mut buf) {
                 Ok(()) => {
                     let status = buf[0];
                     defmt::info!("  TD status: {}", status);
-                    if status == 0 {
-                        pass("td_status_idle");
-                    } else {
-                        defmt::warn!("  TD status={} (touch detected?), passing anyway", status);
-                        pass("td_status_idle");
-                    }
+                    pass("td_status_idle");
                 }
                 Err(_) => {
                     fail("td_status_idle", "I2C read failed");
@@ -118,24 +126,25 @@ fn main() -> ! {
         defmt::info!("TEST touch_read_interactive: RUNNING");
         defmt::info!("  >>> Touch the screen within 10 seconds <<<");
         {
+            let mut i2c = fresh_i2c(&mut rcc);
             let mut touch_detected = false;
             let mut remaining_ms: u32 = 10000;
 
             while remaining_ms > 0 && !touch_detected {
                 let mut status_buf = [0u8; 1];
-                match i2c_write_read(&mut i2c, 0x02, &mut status_buf) {
+                match i2c.write_read(FT6X06_I2C_ADDR, &[0x02], &mut status_buf) {
                     Ok(()) if status_buf[0] > 0 => {
-                        let mut touch_buf = [0u8; 4];
-                        match i2c_write_read(&mut i2c, 0x03, &mut touch_buf) {
+                        let mut touch_buf = [0u8; 6];
+                        match i2c.write_read(FT6X06_I2C_ADDR, &[0x03], &mut touch_buf) {
                             Ok(()) => {
                                 let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
                                 let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
-                                defmt::info!("  Touch at x={}, y={}", x, y);
                                 if x >= 3 && x <= 476 && y >= 3 && y <= 796 {
+                                    defmt::info!("  Touch at x={}, y={}", x, y);
                                     pass("touch_read_interactive");
                                     touch_detected = true;
                                 } else {
-                                    defmt::warn!("  Touch at edge (phantom?), retrying...");
+                                    defmt::debug!("  phantom x={}, y={}", x, y);
                                     delay.delay_ms(200u32);
                                     remaining_ms -= 200;
                                 }

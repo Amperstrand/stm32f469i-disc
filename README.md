@@ -190,7 +190,7 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | `test_dma` | DMA2, DWT | 5 | PASS | Probe |
 | `test_lcd` | DSI, LTDC, OTM8009A | 13 | PASS | Probe |
 | `test_touch` | I2C1, FT6X06 | 5 | PASS | Probe |
-| `test_all` | All above + RNG + ADC | 43 | PASS | Probe |
+| `test_all` | All above + RNG + ADC | 44 | PASS | Probe |
 | `hw_diag` | All above (on-screen) | 23 | PASS | Probe |
 | `test_soak` | SDRAM, GPIO | continuous | built | Probe |
 | `test_usb_standalone` | USB OTG FS | 5 | not run | Standalone |
@@ -210,7 +210,7 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | Touch (FT6X06) | test_touch | 5/5 | I2C init, chip ID, FT6X06 init, TD status, interactive |
 | RNG | test_all (rng) | 3/3 | Non-zero, uniqueness, consecutive differ |
 | ADC temp sensor | test_all (adc) | 2/2 | Temperature and Vrefint reads |
-| All-in-one | test_all | 43/43 | Single flash, Peripherals::steal() between suites |
+| All-in-one | test_all | 44/44 | Single flash, Peripherals::steal() between suites |
 | On-screen diag | hw_diag | 23/23 | Embedded-graphics display, touch demo |
 | USB CDC | test_usb_standalone | — | Builds clean; requires st-flash + USB cable (not run) |
 
