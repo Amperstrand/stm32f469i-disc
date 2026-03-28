@@ -78,7 +78,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 
 - `stm32f4xx-hal` @ `b72958b` (Amperstrand fork — DSI host, PLLSAI fix)
 - `nt35510` @ `7d588ef` (Amperstrand fork)
-- `ft6x06` @ `2ed36f7` (Amperstrand fork)
+- `ft6x06-rs` @ `fa4b41c` (Amperstrand fork of DogeDark/ft6x06-rs)
 - `stm32-fmc` 0.4 (SDRAM)
 - `embedded-hal` 1.0 + 0.2 (dual trait support)
 
