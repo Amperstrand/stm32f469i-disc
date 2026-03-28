@@ -701,7 +701,6 @@ fn main() -> ! {
                 )
             };
             let mut buf = [0u8; 1];
-            use embedded_hal_02::blocking::i2c::WriteRead;
             match i2c.write_read(FT6X06_I2C_ADDR, &[0xA8], &mut buf) {
                 Ok(()) => {
                     let id = buf[0];
@@ -723,7 +722,6 @@ fn main() -> ! {
                 )
             };
             let mut buf = [0u8; 1];
-            use embedded_hal_02::blocking::i2c::WriteRead;
             match i2c.write_read(FT6X06_I2C_ADDR, &[0x02], &mut buf) {
                 Ok(()) => {
                     defmt::info!("  TD status: {}", buf[0]);
@@ -1001,7 +999,6 @@ fn main() -> ! {
         let mut touch_count = 0u32;
         while deadline > 0 {
             let mut status_buf = [0u8; 1];
-            use embedded_hal_02::blocking::i2c::WriteRead;
             match i2c.write_read(FT6X06_I2C_ADDR, &[0x02], &mut status_buf) {
                 Ok(()) if status_buf[0] > 0 => {
                     let mut touch_buf = [0u8; 4];

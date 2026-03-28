@@ -77,10 +77,11 @@ Testing performed during the micronuts porting project (before migration to Emba
 ## Key Dependencies
 
 - `stm32f4xx-hal` @ `b72958b` (Amperstrand fork — DSI host, PLLSAI fix)
+- `otm8009a` @ `76dcda9` (Amperstrand fork — eh 1.0, edition 2024)
 - `nt35510` @ `7d588ef` (Amperstrand fork)
 - `ft6x06-rs` @ `fa4b41c` (Amperstrand fork of DogeDark/ft6x06-rs)
 - `stm32-fmc` 0.4 (SDRAM)
-- `embedded-hal` 1.0 + 0.2 (dual trait support)
+- `embedded-hal` 1.0 (BSP is pure eh 1.0; eh 0.2 exists only as transitive dep of stm32f4xx-hal)
 
 ## Migration Notes
 

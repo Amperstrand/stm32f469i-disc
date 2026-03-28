@@ -49,7 +49,6 @@ use embedded_graphics_core::{
     pixelcolor::{Rgb565, RgbColor},
 };
 use embedded_hal::delay::DelayNs;
-use embedded_hal_02::blocking::delay::{DelayMs, DelayUs};
 use nt35510::Nt35510;
 use otm8009a::{Otm8009A, Otm8009AConfig};
 
@@ -212,7 +211,7 @@ pub enum BoardHint {
 /// Uses the board hint to inform the fallback decision.
 pub fn detect_lcd_controller(
     dsi_host: &mut DsiHost,
-    delay: &mut (impl DelayUs<u32> + DelayMs<u32> + DelayNs),
+    delay: &mut impl DelayNs,
     board_hint: BoardHint,
 ) -> LcdController {
     if let BoardHint::ForceNt35510 = board_hint {
@@ -222,7 +221,7 @@ pub fn detect_lcd_controller(
     }
 
     const PROBE_RETRIES: u8 = 3;
-    embedded_hal_02::blocking::delay::DelayUs::<u32>::delay_us(delay, 20_000u32);
+    delay.delay_us(20_000);
 
     let mut nt35510 = Nt35510::new();
     let mut mismatch_count = 0u8;
@@ -272,7 +271,7 @@ pub fn detect_lcd_controller(
                 );
             }
         }
-        embedded_hal_02::blocking::delay::DelayUs::<u32>::delay_us(delay, 5_000u32);
+        delay.delay_us(5_000);
     }
 
     let fallback_to_otm = match board_hint {
@@ -351,16 +350,16 @@ pub fn init_dsi(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHo
 }
 
 /// Initialize DSI host and wait for panel link to settle (20ms).
-pub fn init_dsi_with_delay(dsi: DSI, rcc: &mut Rcc, delay: &mut impl DelayMs<u32>) -> DsiHost {
+pub fn init_dsi_with_delay(dsi: DSI, rcc: &mut Rcc, delay: &mut impl DelayNs) -> DsiHost {
     let dsi_host = init_dsi(dsi, rcc, DISPLAY_CONFIG);
-    delay.delay_ms(20u32);
+    delay.delay_ms(20);
     dsi_host
 }
 
 /// Detect and initialize the LCD panel, then switch DSI to high-speed mode.
 pub fn init_panel(
     dsi_host: &mut DsiHost,
-    delay: &mut (impl DelayUs<u32> + DelayMs<u32> + DelayNs),
+    delay: &mut impl DelayNs,
     board_hint: BoardHint,
 ) -> LcdController {
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
@@ -462,7 +461,7 @@ pub fn init_display_full(
     ltdc: LTDC,
     dma2d: DMA2D,
     rcc: &mut Rcc,
-    delay: &mut (impl DelayUs<u32> + DelayMs<u32> + DelayNs),
+    delay: &mut impl DelayNs,
     board_hint: BoardHint,
     orientation: DisplayOrientation,
 ) -> (DisplayController<u16>, LcdController, DisplayOrientation) {
@@ -471,7 +470,7 @@ pub fn init_display_full(
     let mut dsi_host = init_dsi(dsi, rcc, display_timing);
 
     // Step 2: Critical delay for panel link
-    embedded_hal_02::blocking::delay::DelayMs::<u32>::delay_ms(delay, 20u32);
+    delay.delay_ms(20);
 
     // Step 3: Detect LCD controller
     let controller = detect_lcd_controller(&mut dsi_host, delay, board_hint);
@@ -556,9 +555,9 @@ pub fn init_display_pipeline(
 
     let mut lcd_reset = ph7.into_push_pull_output();
     lcd_reset.set_low();
-    embedded_hal_02::blocking::delay::DelayMs::<u32>::delay_ms(delay, 20u32);
+    delay.delay_ms(20);
     lcd_reset.set_high();
-    embedded_hal_02::blocking::delay::DelayMs::<u32>::delay_ms(delay, 10u32);
+    delay.delay_ms(10);
 
     let mut sdram = sdram::Sdram::new(fmc, sdram_pins, &rcc.clocks, delay);
     let buffer: &'static mut [u16] = sdram.subslice_mut(0, orientation.fb_size());
@@ -726,14 +725,14 @@ impl DoubleFramebuffer {
     ///
     /// The `DisplayController` is dropped. Use this to downgrade to a single
     /// `LtdcFramebuffer` after double-buffered animation is complete.
-    pub fn into_front_buffer(mut self) -> &'static mut [u16] {
+    pub fn into_front_buffer(self) -> &'static mut [u16] {
         self.front
     }
 
     /// Consume the double framebuffer and return the front buffer and the
     /// `DisplayController` separately, allowing the controller to be used for
     /// further operations (e.g., periodic `swap_buffers()` calls).
-    pub fn into_parts(mut self) -> (&'static mut [u16], DisplayController<u16>) {
+    pub fn into_parts(self) -> (&'static mut [u16], DisplayController<u16>) {
         (self.front, self.display_ctrl)
     }
 }

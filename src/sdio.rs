@@ -23,7 +23,7 @@ use crate::hal::pac::SDIO;
 use crate::hal::rcc::Rcc;
 use crate::hal::sdio::{ClockFreq, SdCard, Sdio};
 use crate::sdram::SdramRemainders;
-use embedded_hal_02::blocking::delay::DelayMs;
+use embedded_hal::delay::DelayNs;
 
 /// Initialize the SDIO peripheral with 4-bit bus width.
 ///
@@ -81,7 +81,7 @@ const BLOCK_SIZE: usize = 512;
 /// * `Err(e)` if init failed after retries
 pub fn init_card<D>(sdio: &mut Sdio<SdCard>, delay: &mut D) -> Result<(), hal::sdio::Error>
 where
-    D: DelayMs<u32>,
+    D: DelayNs,
 {
     init_card_at_freq(sdio, delay, ClockFreq::F1Mhz)
 }
@@ -106,7 +106,7 @@ pub fn init_card_at_freq<D>(
     data_freq: ClockFreq,
 ) -> Result<(), hal::sdio::Error>
 where
-    D: DelayMs<u32>,
+    D: DelayNs,
 {
     let mut retries = 2u32;
     loop {
