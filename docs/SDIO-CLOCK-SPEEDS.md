@@ -36,7 +36,7 @@ This document summarizes manufacturer recommendations and tradeoffs for SD/SDXC 
 ### Is 24 MHz notably faster than 1 MHz? Did our testing show it?
 
 - **Yes, 24 MHz is much faster in theory and in practice.** Clock speed scales roughly with throughput: 4-bit SDIO at 24 MHz can reach on the order of **~12 MB/s** (with protocol overhead); at 1 MHz you get on the order of **~0.5 MB/s**. So the ratio is roughly **20–24×**.
-- **Our automated testing did not log throughput.** The one-freq-per-run sweep records only PASS/FAIL per frequency. So we have not recorded “X MB/s at 1 MHz vs Y MB/s at 24 MHz” in the automated logs. If you run probe-rs **interactively**, the sweep now logs **MB/s** per frequency (DWT cycle counter); you can paste that into `logs/OBSERVED-RESULTS.md` to document the speed difference.
+- **Our automated testing did not log throughput.** The one-freq-per-run sweep records only PASS/FAIL per frequency. So we have not recorded “X MB/s at 1 MHz vs Y MB/s at 24 MHz” in the automated logs. If you run probe-rs **interactively**, the sweep now logs **MB/s** per frequency (DWT cycle counter); you can paste that into AGENTS.md to document the speed difference.
 - **What’s normal for devices?** Many devices **optimize for compatibility**: they use a conservative default (e.g. 1–4 MHz or “default speed” per SD spec) so all cards work, then optionally allow a higher speed after negotiation or user config. Others (e.g. some STM32 Cube examples) set **24–25 MHz** right after init and assume the card supports it. So there is a split: “safe default” vs “fast default.”
 - **What do other projects do?** STM32 HAL/Cube often uses **24 MHz** for data transfer after the 400 kHz identification phase. Projects that prioritize reliability (e.g. industrial, multi-vendor cards) often use **lower** clocks (1–10 MHz) or make the clock configurable. So: **we are conservative** (1 MHz default); others often pick 24 MHz when they control the card type.
 - **What should we do?** Keep **1 MHz as the BSP default** so new projects and unknown cards are safe. For **your** card, use the results table: if your sweep shows all pass up to 24 MHz, use `init_card_at_freq(..., ClockFreq::F24Mhz)` (or 8/12 MHz if you prefer a safety margin). We do not change the default to 24 MHz because that would risk timeouts on marginal cards; the table documents when it’s safe to raise speed.
@@ -49,14 +49,14 @@ This document summarizes manufacturer recommendations and tradeoffs for SD/SDXC 
 
 ### How we tested (1, 4, 8, 12, 24 MHz)
 
-The `sdio_speed_sweep` example runs a short read test (256 blocks) at each of 1, 4, 8, 12, and 24 MHz, prints PASS/FAIL per frequency, then a RECOMMENDATION (highest passing speed) and TRADEOFFS, then a full 10 MiB read at 1 MHz. **We have run this on the STM32F469I-DISCO** (one frequency per run); results are captured via a results buffer and written to `logs/sweep_analysis.txt`. To add a row for your card:
+The `sdio_speed_sweep` example runs a short read test (256 blocks) at each of 1, 4, 8, 12, and 24 MHz, prints PASS/FAIL per frequency, then a RECOMMENDATION (highest passing speed) and TRADEOFFS, then a full 10 MiB read at 1 MHz. **We have run this on the STM32F469I-DISCO** (one frequency per run); results are captured via a results buffer (see AGENTS.md). To add a row for your card:
 
 1. Run the sweep: build per frequency, run on host with probe-rs, and copy defmt output.
 2. Add a row to the table below with date, card identifier, ✅/❌ per frequency, and Notes (e.g. RECOMMENDATION from the script).
 
 ## Test results (STM32F469I-DISCO)
 
-**Automated run 2026-03-08:** One frequency per run via `run-sweep-remote-capture.sh`; all five frequencies (1, 4, 8, 12, 24 MHz) passed; RECOMMENDATION 24 MHz. Row added below.
+**Automated run 2026-03-08:** One frequency per run; all five frequencies (1, 4, 8, 12, 24 MHz) passed; RECOMMENDATION 24 MHz. Row added below.
 
 | Date       | Card (brand/capacity) | 1 MHz | 4 MHz | 8 MHz | 12 MHz | 24 MHz | Notes |
 |------------|------------------------|-------|-------|-------|--------|--------|-------|

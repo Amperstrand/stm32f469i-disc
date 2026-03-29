@@ -10,7 +10,8 @@ This BSP is no longer actively developed. The micronuts firmware has been ported
 
 | Commit | Notes |
 |--------|-------|
-| `5290ae7` (main HEAD) | USB standalone test, RNG/ADC tests, host companion |
+| `d12977e` (main HEAD) | Comprehensive audit: bugs, docs, code quality, metadata |
+| `5290ae7` | USB standalone test, RNG/ADC tests, host companion |
 | `da9fdb2` | LTDC init refactors, double-framebuffer merge, ForceNt35510 hint |
 
 ## Hardware Test Evidence
@@ -61,7 +62,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 | SDIO microSD untested (#13) | CLOSED | Out of scope for wallet |
 | SDIO speed sweep (#6) | CLOSED | Out of scope for wallet |
 | FT6X06 phantom touches (#17) | CLOSED | 3px edge margin filter in firmware |
-| defmt log level (#15) | CLOSED | Set DEFMT_LOG=info in firmware config |
+| defmt log level (#15) | CLOSED | DEFMT_LOG set in .cargo/config.toml |
 
 ## Open Issues (documentation/architecture only)
 
@@ -80,7 +81,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 - `otm8009a` @ `76dcda9` (Amperstrand fork — eh 1.0, edition 2024)
 - `nt35510` @ `7d588ef` (Amperstrand fork)
 - `ft6x06-rs` @ `fa4b41c` (Amperstrand fork of DogeDark/ft6x06-rs)
-- `stm32-fmc` 0.4 (SDRAM)
+- `stm32-fmc` 0.4.0 (SDRAM)
 - `embedded-hal` 1.0 (BSP is pure eh 1.0; eh 0.2 exists only as transitive dep of stm32f4xx-hal)
 
 ## Migration Notes

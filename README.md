@@ -136,7 +136,7 @@ Run individual tests:
     ./run_tests.sh test_timers      # TIM2/TIM3 delays, PWM, cancel (8 tests)
     ./run_tests.sh test_dma         # DMA2 mem-to-mem transfers (5 tests)
     ./run_tests.sh test_lcd         # DSI LCD init, color fills (13 tests)
-    ./run_tests.sh test_all         # All non-USB in one flash (~42 tests, ~60s)
+     ./run_tests.sh test_all         # All non-USB in one flash (44 tests, ~60s)
 
 Results are saved to `test-results/`.
 
@@ -176,7 +176,7 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | `test_touch` | I2C1, FT6X06 | 5 | PASS | Probe |
 | `test_all` | All above + RNG + ADC | 44 | PASS | Probe |
 | `hw_diag` | All above (on-screen) | — | BUILT | — |
-| `test_soak` | SDRAM, GPIO | continuous | built | Probe |
+| `test_soak` | SDRAM, GPIO | continuous | not in run_tests.sh | — |
 | `test_usb_standalone` | USB OTG FS | 5 | not run | Standalone |
 
 ### Hardware Test Evidence (2026-03-28)

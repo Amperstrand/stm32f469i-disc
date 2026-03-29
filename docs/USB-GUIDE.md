@@ -79,9 +79,9 @@ Add these to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-static_cell = "2"
-usb-device = "0.3"
-usbd-serial = "0.2"
+static_cell = "2.1.1"
+usb-device = "0.3.1"
+usbd-serial = "0.2.0"
 ```
 
 ### Complete CDC-ACM Example
@@ -245,5 +245,4 @@ The HAL repository includes a complete CDC-ACM example at:
 |---------|--------------|----------|
 | Device not recognized | Missing 48MHz clock | Add `require_pll48clk()` to RCC config |
 | Enumeration fails | EP memory not allocated | Add static `EP_MEMORY` allocation |
-| Crash on init | Wrong feature enabled | Use `usb_fs`, not `usb_hs` |
 | Intermittent connection | HSE crystal issues | Verify HSE frequency matches config |

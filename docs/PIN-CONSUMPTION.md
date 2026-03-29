@@ -20,10 +20,12 @@ After SDRAM initialization, the `split_sdram_pins()` function returns:
 | Pin | Function | Notes |
 |-----|----------|-------|
 | PA0 | User Button | Active high, use pull-down |
+| PA9 | USART1 TX | Test UART TX; not routed to onboard peripherals |
+| PA10 | USART1 RX | Test UART RX; not routed to onboard peripherals |
 | PA11 | USB DM | USB OTG FS |
 | PA12 | USB DP | USB OTG FS |
 
-**Available:** PA1-PA10, PA13-PA15 (not routed to onboard peripherals)
+**Available:** PA1-PA8, PA13-PA15 (not routed to onboard peripherals)
 
 ### Port B
 
@@ -111,9 +113,11 @@ After SDRAM initialization, the `split_sdram_pins()` function returns:
 | PG5 | BA1 | - | SDRAM bank address 1 |
 | PG6 | - | LED LD1 | Green LED |
 | PG8 | SDCLK | - | SDRAM clock |
+| PG9 | - | USART6 RX | Available; alternate function for USART6 RX |
+| PG14 | - | USART6 TX | Available; alternate function for USART6 TX |
 | PG15 | SDNCAS | - | SDRAM column address strobe |
 
-**Available:** PG2, PG3, PG7, PG9-PG14
+**Available:** PG2, PG3, PG7, PG10-PG13
 
 ### Port H
 
@@ -232,9 +236,9 @@ Plus PH7 is returned separately for LCD reset.
 ## Visual Pin Map
 
 ```
-Port A: [0:BTN] [1-10:FREE] [11:USB] [12:USB] [13-15:FREE]
-                      ↑           ↑
-                   JTAG/SWD   USB OTG FS
+Port A: [0:BTN] [1-8:FREE] [9:UART1_TX] [10:UART1_RX] [11:USB] [12:USB] [13-15:FREE]
+                       ↑               ↑             ↑          ↑           ↑
+                    JTAG/SWD     USART1 TX     USART1 RX   USB OTG FS
 
 Port B: [0-7:FREE] [8:I2C_SCL] [9:I2C_SDA] [10-15:FREE]
                               ↑
@@ -256,9 +260,9 @@ Port F: [0-5:SDRAM] [6-10:FREE] [11:SDRAM] [12-15:SDRAM]
           ↑              ↑          ↑           ↑
        A0-A5          FREE      SDNRAS      A6-A9
 
-Port G: [0-1:SDRAM] [2-3:FREE] [4-5:SDRAM] [6:LED] [7:FREE] [8:SDRAM] [9-14:FREE] [15:SDRAM]
-          ↑                           ↑        ↑              ↑                        ↑
-       A10,A11                    BA0,BA1   Green          SDCLK                   SDNCAS
+Port G: [0-1:SDRAM] [2-3:FREE] [4-5:SDRAM] [6:LED] [7:FREE] [8:SDRAM] [9:UART6_RX] [10-13:FREE] [14:UART6_TX] [15:SDRAM]
+           ↑                           ↑        ↑              ↑            ↑                ↑                  ↑
+        A10,A11                    BA0,BA1   Green          SDCLK      USART6 RX         FREE              SDNCAS
 
 Port H: [0-1:FREE] [2-3:SDRAM] [4-6:FREE] [7:LCD] [8-15:SDRAM]
                        ↑                       ↑       ↑
@@ -291,6 +295,8 @@ Legend:
 | Touch | PB8, PB9 (I2C), PC1 (INT) | - |
 | SDIO | PC8-12, PD2 | - |
 | USB FS | PA11, PA12 | - |
+| USART1 | PA9 (TX), PA10 (RX) | - (not routed to onboard peripherals) |
+| USART6 | PG14 (TX), PG9 (RX) | - (not consumed by SDRAM) |
 | User Button | PA0 | - |
 | LEDs | PD4, PD5, PG6, PK3 | - |
 
@@ -342,16 +348,16 @@ let mut touch = touch::init_ft6x06(&i2c, touch_int);
 
 | Port | Total Pins | SDRAM | Other Used | Available |
 |------|-----------|-------|------------|-----------|
-| A | 16 | 0 | 3 (BTN, USB) | 13 |
+| A | 16 | 0 | 5 (BTN, UART, USB) | 11 |
 | B | 16 | 0 | 2 (I2C) | 14 |
 | C | 16 | 1 | 6 (Touch, SDIO) | 9 |
 | D | 16 | 7 | 3 (SDIO, LED) | 6 |
 | E | 16 | 11 | 0 | 5 |
 | F | 16 | 11 | 0 | 5 |
-| G | 16 | 6 | 1 (LED) | 9 |
+| G | 16 | 6 | 3 (LED, UART) | 7 |
 | H | 16 | 10 | 1 (LCD) | 5 |
 | I | 12 | 10 | 0 | 2 |
 | K | 8 | 0 | 1 (LED) | 7 |
-| **Total** | **148** | **52** | **17** | **75** |
+| **Total** | **148** | **52** | **21** | **71** |
 
 The SDRAM consumes 52 pins, leaving 96 pins for other uses (75 of which are on ports A-K).
