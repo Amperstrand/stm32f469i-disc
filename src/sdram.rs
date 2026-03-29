@@ -192,6 +192,7 @@ pub struct SdramRemainders {
 /// * Tuple of SDRAM pins (compatible with `Sdram::new()`)
 /// * `SdramRemainders` with pins not used by SDRAM
 /// * PH7 pin for LCD reset (consumed by display init)
+#[allow(clippy::too_many_arguments)]
 pub fn split_sdram_pins(
     gpioc: hal::gpio::gpioc::Parts,
     gpiod: hal::gpio::gpiod::Parts,
