@@ -1,10 +1,10 @@
 # stm32f469i-disc
 
-Board support crate for the STM32F469I-DISCOVERY kit. **Legacy / maintenance mode** — new development uses [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco) (Embassy async BSP).
+Board support crate for the STM32F469I-DISCOVERY kit. An async version using Embassy is available at [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco). Plan is to upstream fixes and improvements to stm32f4xx-hal and related crates once testing is complete.
 
-## Status: Maintenance Mode
+## Status: Active
 
-This BSP is no longer actively developed. The micronuts firmware has been ported to the Embassy async framework using `embassy-stm32f469i-disco`. This crate remains available for reference and for the gm65-scanner standalone firmware which still uses the sync `stm32f4xx-hal`.
+This BSP is actively developed and tested. An Embassy async version exists at `embassy-stm32f469i-disco` for async use cases. Upstream contributions to `stm32f4xx-hal` and related crates are planned once hardware testing is complete and all decisions are finalized.
 
 ## Known-Good Pin
 
@@ -86,11 +86,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 
 ## Migration Notes
 
-If you are starting a new project on STM32F469I-Discovery:
-1. Use `embassy-stm32f469i-disco` instead of this crate
-2. The Embassy BSP provides the same peripherals (SDRAM, DSI/LTDC/NT35510, FT6X06)
-3. All hardware test evidence above applies to the Embassy BSP as well
-4. The Embassy BSP has fixed DSI read issues (RawDsi::read() FIFO flow control)
+An async version using Embassy is available at `embassy-stm32f469i-disco`, which provides the same peripherals (SDRAM, DSI/LTDC/NT35510, FT6X06) and has fixed DSI read issues (RawDsi::read() FIFO flow control). All hardware test evidence above applies to the Embassy BSP as well.
 
 ## Upstream Interaction Policy
 

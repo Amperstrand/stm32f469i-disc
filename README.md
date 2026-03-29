@@ -2,7 +2,7 @@ stm32f469i-disc
 ================
 Board support package for the STM32F469I-DISCOVERY kit.
 
-> **Note:** This BSP is in maintenance mode. For new projects, use [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco).
+> An async version using Embassy is available at [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco). Plan is to upstream fixes and improvements to stm32f4xx-hal and related crates once testing is complete.
 
 Quick Start
 -----------
