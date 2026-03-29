@@ -1,114 +1,104 @@
 CHIP       ?= STM32F469NIHx
 TARGET     := thumbv7em-none-eabihf
 CARGO      ?= cargo
-PROBE_RS   ?= probe-rs
-RTT_FLAGS  := --rtt-scan-memory
-TIMEOUT    ?= 120
-LOG_DIR    := logs
 
-# Core HIL tests (fast, no optional hardware required)
-HIL_CORE := \
-	gpio_hal_blinky \
-	fmc_sdram_test \
-	display_dsi_lcd \
-	display_hello_eg \
-	display_touch \
-	sdio_raw_test \
-	usb_cdc_serial
+# probe-rs test suite (requires hardware)
+PROBE_TESTS := test_led test_gpio test_uart test_timers test_dma \
+               test_sdram test_sdram_full test_lcd test_touch test_all \
+               hw_diag test_soak
 
-# Extended tests (slow, optional hardware)
-HIL_EXTENDED := sdio_speed_sweep
+# standalone tests (require st-flash + USB cable)
+USB_TESTS   := test_usb_standalone
 
-HIL_ALL := $(HIL_CORE) $(HIL_EXTENDED)
-
-# Per-example feature flags
-FEATURES_display_hello_eg  := --features framebuffer
-FEATURES_usb_cdc_serial    := --features usb_fs
-FEATURES_sdio_speed_sweep  := --features sdio-speed-test
+# feature-flagged examples
+FB_EXAMPLES := test_lcd test_all hw_diag
+USB_EXAMPLES := usb_cdc_serial test_usb_standalone
 
 # ============================================================
-# Top-level targets
+# Software-only checks (no hardware)
 # ============================================================
 
-.PHONY: hiltest hiltest-extended hiltest-all clean-logs
+.PHONY: check clippy doc fmt build-all
 
-hiltest: $(HIL_CORE)
-	@echo ""
-	@echo "=== HIL TEST SUMMARY ==="
-	@for t in $(HIL_CORE); do \
-		grep -q "HIL_RESULT:.*:PASS" /tmp/hil_$${t}.log 2>/dev/null && \
-			echo "  $$t: PASS" || \
-		(grep -q "HIL_RESULT:.*:SKIP" /tmp/hil_$${t}.log 2>/dev/null && \
-			echo "  $$t: SKIP" || \
-			echo "  $$t: FAIL"); \
+check: build-all clippy doc
+	@echo "=== All software checks passed ==="
+
+build-all:
+	$(CARGO) build --release --target $(TARGET) --lib
+	$(CARGO) build --release --target $(TARGET) --lib --no-default-features
+	$(CARGO) build --release --target $(TARGET) --lib --features framebuffer
+	$(CARGO) build --release --target $(TARGET) --example test_led
+	$(CARGO) build --release --target $(TARGET) --example test_gpio
+	$(CARGO) build --release --target $(TARGET) --example test_uart
+	$(CARGO) build --release --target $(TARGET) --example test_timers
+	$(CARGO) build --release --target $(TARGET) --example test_dma
+	$(CARGO) build --release --target $(TARGET) --example test_sdram
+	$(CARGO) build --release --target $(TARGET) --example test_sdram_full
+	$(CARGO) build --release --target $(TARGET) --example test_lcd
+	$(CARGO) build --release --target $(TARGET) --example test_touch
+	$(CARGO) build --release --target $(TARGET) --example test_all
+	$(CARGO) build --release --target $(TARGET) --example test_soak
+	$(CARGO) build --release --target $(TARGET) --example hw_diag
+	$(CARGO) build --release --target $(TARGET) --example test_usb_standalone
+	$(CARGO) build --release --target $(TARGET) --example defmt_hse_test
+	$(CARGO) build --release --target $(TARGET) --example display_hello_eg --features framebuffer
+	$(CARGO) build --release --target $(TARGET) --example usb_cdc_serial --features usb_fs
+
+clippy:
+	$(CARGO) clippy --release --target $(TARGET) -- -D warnings
+	$(CARGO) clippy --release --target $(TARGET) --features framebuffer -- -D warnings
+	@for ex in test_led test_gpio test_uart test_timers test_dma test_sdram test_sdram_full test_lcd test_touch test_all test_soak hw_diag test_usb_standalone defmt_hse_test; do \
+		$(CARGO) clippy --release --target $(TARGET) --example "$$ex" -- -D warnings || exit 1; \
 	done
+	$(CARGO) clippy --release --target $(TARGET) --example display_hello_eg --features framebuffer -- -D warnings
+	$(CARGO) clippy --release --target $(TARGET) --example usb_cdc_serial --features usb_fs -- -D warnings
 
-hiltest-extended: hiltest $(HIL_EXTENDED)
-	@echo ""
-	@echo "=== FULL HIL TEST SUMMARY ==="
-	@for t in $(HIL_ALL); do \
-		grep -q "HIL_RESULT:.*:PASS" /tmp/hil_$${t}.log 2>/dev/null && \
-			echo "  $$t: PASS" || \
-		(grep -q "HIL_RESULT:.*:SKIP" /tmp/hil_$${t}.log 2>/dev/null && \
-			echo "  $$t: SKIP" || \
-			echo "  $$t: FAIL"); \
-	done
+doc:
+	$(CARGO) doc --no-deps --target $(TARGET)
+	$(CARGO) doc --no-deps --target $(TARGET) --features framebuffer,touch,defmt,rng
 
-hiltest-all: hiltest-extended
+fmt:
+	$(CARGO) fmt --all -- --check
 
-clean-logs:
-	rm -f /tmp/hil_*.log
+fmt-fix:
+	$(CARGO) fmt --all
 
 # ============================================================
-# Per-example build + flash + run + grep
+# Hardware tests (requires probe-rs + STM32F469I-DISCO)
 # ============================================================
 
-# Pattern rule for all HIL tests
-# Usage: make gpio_hal_blinky  (or any example name)
-define HIL_RULE
-.PHONY: $(1)
-$(1): build-$(1) run-$(1)
-endef
+.PHONY: test probe-test usb-test
 
-$(foreach t,$(HIL_ALL),$(eval $(call HIL_RULE,$(t))))
+test: probe-test
 
-# Build pattern
-define BUILD_RULE
-.PHONY: build-$(1)
-build-$(1):
-	$$(CARGO) build --release --example $(1) $$(FEATURES_$(1))
-endef
+probe-test:
+	@echo "Running probe-rs test suite via run_tests.sh"
+	./run_tests.sh all
 
-$(foreach t,$(HIL_ALL),$(eval $(call BUILD_RULE,$(t))))
-
-# Run pattern: flash + capture RTT + grep result
-define RUN_RULE
-.PHONY: run-$(1)
-run-$(1): build-$(1)
-	@mkdir -p $(LOG_DIR)
-	timeout $(TIMEOUT) $(PROBE_RS) run --chip $(CHIP) $(RTT_FLAGS) \
-		target/$(TARGET)/release/examples/$(1) \
-		2>&1 | tee /tmp/hil_$(1).log || true
-	@grep -q "HIL_RESULT:.*:PASS" /tmp/hil_$(1).log 2>/dev/null && \
-		echo ">>> $(1): PASS" || \
-	(grep -q "HIL_RESULT:.*:SKIP" /tmp/hil_$(1).log 2>/dev/null && \
-		echo ">>> $(1): SKIP" || \
-		echo ">>> $(1): FAIL")
-	@cp /tmp/hil_$(1).log $(LOG_DIR)/ 2>/dev/null || true
-endef
-
-$(foreach t,$(HIL_ALL),$(eval $(call RUN_RULE,$(t))))
+usb-test:
+	@echo "Running USB standalone test via scripts/usb_test.sh"
+	./scripts/usb_test.sh
 
 # ============================================================
-# Convenience targets
+# Convenience
 # ============================================================
 
-.PHONY: build-all
-build-all: $(foreach t,$(HIL_ALL),build-$(t))
+.PHONY: list clean
 
-.PHONY: list
 list:
-	@echo "Core HIL tests:"
-	@for t in $(HIL_CORE); do echo "  $$t"; done
-	@echo "Extended HIL tests:"
-	@for t in $(HIL_EXTENDED); do echo "  $$t"; done
+	@echo "Software checks (no hardware):"
+	@echo "  make check       Build + clippy + doc"
+	@echo "  make build-all   Build lib + all examples"
+	@echo "  make clippy      Lint with zero warnings"
+	@echo "  make doc         Generate docs"
+	@echo "  make fmt         Check formatting"
+	@echo ""
+	@echo "Hardware tests (requires board):"
+	@echo "  make probe-test  Run probe-rs test suite (run_tests.sh)"
+	@echo "  make usb-test    Run USB standalone test (st-flash + USB)"
+	@echo ""
+	@echo "Individual examples:"
+	@for t in $(PROBE_TESTS) $(USB_TESTS); do echo "  $$t"; done
+
+clean:
+	$(CARGO) clean

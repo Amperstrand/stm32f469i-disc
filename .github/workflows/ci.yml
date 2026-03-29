@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ""
+          - "--no-default-features"
+          - "--features framebuffer"
+          - "--features usb_fs"
+          - "--features framebuffer,usb_fs,touch,defmt,rng"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.features }}
+      - name: Build library
+        run: cargo build --release --target thumbv7em-none-eabihf ${{ matrix.features }}
+      - name: Build examples (default features)
+        if: matrix.features == ''
+        run: |
+          for ex in test_led test_gpio test_uart test_timers test_dma test_sdram test_sdram_full test_lcd test_touch test_all test_soak hw_diag test_usb_standalone defmt_hse_test; do
+            cargo build --release --target thumbv7em-none-eabihf --example "$ex"
+          done
+      - name: Build examples (no default features)
+        if: matrix.features == '--no-default-features'
+        run: |
+          for ex in test_led test_gpio test_uart test_timers test_dma test_sdram test_sdram_full test_lcd test_soak defmt_hse_test test_usb test_usb_standalone; do
+            cargo build --release --target thumbv7em-none-eabihf --example "$ex" --no-default-features
+          done
+      - name: Build examples (framebuffer)
+        if: contains(matrix.features, 'framebuffer')
+        run: |
+          for ex in test_lcd test_all hw_diag; do
+            cargo build --release --target thumbv7em-none-eabihf --example "$ex" --features framebuffer
+          done
+      - name: Build examples (usb_fs)
+        if: contains(matrix.features, 'usb_fs')
+        run: |
+          cargo build --release --target thumbv7em-none-eabihf --example usb_cdc_serial --features usb_fs
+          cargo build --release --target thumbv7em-none-eabihf --example test_usb_standalone --features usb_fs
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy
+      - name: Clippy library
+        run: cargo clippy --release --target thumbv7em-none-eabihf -- -D warnings
+      - name: Clippy library (framebuffer)
+        run: cargo clippy --release --target thumbv7em-none-eabihf --features framebuffer -- -D warnings
+      - name: Clippy examples
+        run: |
+          for ex in test_led test_gpio test_uart test_timers test_dma test_sdram test_sdram_full test_lcd test_touch test_all test_soak hw_diag test_usb_standalone defmt_hse_test; do
+            cargo clippy --release --target thumbv7em-none-eabihf --example "$ex" -- -D warnings
+          done
+          cargo clippy --release --target thumbv7em-none-eabihf --example display_hello_eg --features framebuffer -- -D warnings
+          cargo clippy --release --target thumbv7em-none-eabihf --example usb_cdc_serial --features usb_fs -- -D warnings
+
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: doc
+      - name: Build docs
+        run: cargo doc --no-deps --target thumbv7em-none-eabihf
+      - name: Build docs (all features)
+        run: cargo doc --no-deps --target thumbv7em-none-eabihf --features framebuffer,touch,defmt,rng
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check

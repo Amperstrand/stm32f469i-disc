@@ -360,7 +360,7 @@ impl Sdram {
     /// 3. The caller must ensure they don't create multiple overlapping mutable slices
     ///
     /// However, calling this multiple times and storing both results violates Rust's
-    /// aliasing rules. Use [`subslice_mut`] for partitioning.
+    /// aliasing rules. Use [`Self::subslice_mut`] for partitioning.
     ///
     /// # Type Constraints
     ///
