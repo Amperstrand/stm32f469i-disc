@@ -1,6 +1,14 @@
 #![no_std]
 #![allow(non_camel_case_types)]
 
+//! Board support crate for the STM32F469I-DISCO Discovery kit.
+//!
+//! **Maintenance mode** — for new projects, use
+//! [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco).
+//!
+//! Provides drivers and initialization helpers for the on-board peripherals:
+//! SDRAM, DSI/LTDC display, FT6X06 touch, USB OTG FS, LEDs, GPIO, SDIO.
+
 pub use stm32f4xx_hal as hal;
 
 pub use crate::hal::pac::interrupt::*;

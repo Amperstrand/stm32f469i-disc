@@ -25,11 +25,11 @@ const SOAK_SIZE: usize = 262144; // 1MB window (256K u32 words)
 
 #[entry]
 fn main() -> ! {
-    if let (Some(p), Some(_cp)) = (pac::Peripherals::take(), Peripherals::take()) {
+    if let (Some(p), Some(cp)) = (pac::Peripherals::take(), Peripherals::take()) {
         let rcc = p.RCC.constrain();
         let mut rcc = rcc.freeze(rcc::Config::hse(8.MHz()).sysclk(180.MHz()));
         let clocks = rcc.clocks;
-        let mut delay = cortex_m::Peripherals::take().unwrap().SYST.delay(&clocks);
+        let mut delay = cp.SYST.delay(&clocks);
 
         defmt::info!("=== Soak Test ===");
         defmt::info!("Continuous SDRAM stress + LED heartbeat");

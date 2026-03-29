@@ -2,7 +2,7 @@
 # BSP Test Runner - Flash, capture RTT, parse results
 #
 # Usage: ./run_tests.sh [test_name|all] [--no-flash]
-#   test_name: test_led, test_sdram, test_lcd, test_gpio, or "all"
+#   test_name: test_led, test_sdram, test_sdram_full, test_gpio, test_uart, test_timers, test_dma, test_touch, test_lcd, test_usb, test_all, hw_diag, or "all"
 #   --no-flash: skip flashing (useful for re-running with already-flashed firmware)
 #
 # Requirements: probe-rs, cargo, an ARM target installed

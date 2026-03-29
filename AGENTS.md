@@ -35,7 +35,7 @@ Automated test suite using probe-rs + defmt/RTT. All tests use blocking `stm32f4
 | **RNG** | PASS | test_all: 3/3 | Non-zero, uniqueness, consecutive differ |
 | **ADC temp sensor** | PASS | test_all: 2/2 | Temperature and Vrefint |
 | **All-in-one** | PASS | test_all: 44/44 | Single flash, all suites via Peripherals::steal() |
-| **On-screen diag** | PASS | hw_diag: builds clean | Not run on device; requires st-link + display |
+| **On-screen diag** | BUILT | hw_diag: builds clean | Not run on device; requires st-link + display |
 | **Soak test** | PASS | test_soak: builds clean | Continuous SDRAM stress; no SUMMARY line |
 | **USB CDC** | BUILT | test_usb_standalone builds clean | Requires st-flash + USB cable; not run |
 

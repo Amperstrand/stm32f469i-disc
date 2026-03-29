@@ -3,17 +3,27 @@ edition = "2021"
 authors = ["Michael Fairman <mfairman@tegimeki.com>"]
 categories = [
     "embedded",
+    "hardware-support",
     "no-std",
 ]
 description = "Board support crate for the STM32F469 DISCOVERY kit"
+documentation = "https://docs.rs/stm32f469i-disc"
+exclude = ["embassy-stm32f469i-disco/", "test-results/", "double_buffer_soak_test.rs"]
 keywords = [
     "arm",
+    "bsp",
     "cortex-m",
+    "discovery",
+    "dsi",
+    "embedded",
+    "ltdc",
+    "no-std",
     "stm32f469",
 ]
 license = "0BSD"
 name = "stm32f469i-disc"
 repository = "https://github.com/Amperstrand/stm32f469i-disc"
+rust-version = "1.87"
 version = "0.4.0"
 readme = "README.md"
 

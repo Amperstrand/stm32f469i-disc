@@ -17,25 +17,18 @@ Run each BSP example on the STM32F469I-DISCO board and record pass/fail. Use thi
   `cargo run --example <name> [--features ...]`  
   Observe: LEDs, LCD, defmt/RTT log, or host serial (USB CDC).
 
-- **Remote** (e.g. build here, run on Ubuntu with probe):  
-  `./scripts/deploy-and-run.sh <name>`  
-  This builds, SCPs the ELF to the host, and runs probe-rs there. Ensure the board is connected to that host.
+- **Remote** (e.g. build here, SCP ELF, run on Ubuntu with probe):  
+  Copy the built ELF to the remote host and run probe-rs there. Ensure the board is connected to that host.
 
-- **Capturing RTT/log (remote):**  
-  To capture probe-rs and (when available) defmt/RTT output to a file and retrieve it:  
-  `CAPTURE_RTT=1 ./scripts/deploy-and-run.sh <name>`  
-  Log is written on the remote to `/tmp/<name>_rtt.log`, then copied to `logs/<name>_rtt.log` in the repo. Optional: `RTT_CAPTURE_SEC=20` (default 30) to set how long probe-rs runs before timeout.  
-  **Note:** Over SSH with timeout, captured logs often contain only probe-rs messages; defmt from the target usually does not appear. To see defmt and confirm pass/fail for SDRAM, SD, and USB, run probe-rs **interactively** on the remote (see "Confirming tests when RTT is not in logs" below).
-
-Record the date and Pass/Fail (and any notes) in the table below. For a timestamped run history and space for observations, see [logs/EXPERIMENT-LOG.md](../logs/EXPERIMENT-LOG.md).
+Record the date and Pass/Fail (and any notes) in the table below.
 
 ## Confirming tests when RTT is not in logs
 
 When `CAPTURE_RTT=1` only captures probe-rs stdout (no defmt), confirm SDRAM, SD, and USB as follows:
 
-1. **Deploy the example** (from your machine): run `./scripts/deploy-and-run.sh <example>` **without** `CAPTURE_RTT` so the ELF is on the remote (or copy it there). The script will block while probe-rs runs.
+1. **Deploy the example** (from your machine): copy the built ELF to the remote host. The script will block while probe-rs runs.
 
-2. **On the remote host** (e.g. SSH to `ubuntu@192.168.13.246`), run probe-rs by hand to see defmt in the live terminal:
+2. **On the remote host**, run probe-rs by hand to see defmt in the live terminal:
    - `pkill -9 -f probe-rs; sleep 2`
    - `DEFMT_LOG=info /home/ubuntu/.local/bin/probe-rs run --chip STM32F469NIHx --rtt-scan-memory /tmp/<example>`
    - Replace `<example>` with `fmc_sdram_test`, `sdio_raw_test`, `usb_cdc_serial`, or `sdio_speed_sweep`. Watch for defmt (e.g. "Initializing SDRAM...", "PASS", "SDIO test done", speed sweep results). Ctrl+C when done.
@@ -55,7 +48,7 @@ When `CAPTURE_RTT=1` only captures probe-rs stdout (no defmt), confirm SDRAM, SD
 | 7 | usb_cdc_serial | 2025-03-08 | Run | Re-ran with CAPTURE_RTT=1 RTT_CAPTURE_SEC=25. Confirm: connect board USB device port to host; serial port appears; echo works. |
 | 8 | sdio_speed_sweep | 2025-03-08 | Run | Re-ran with CAPTURE_RTT=1 RTT_CAPTURE_SEC=90. Log has only probe-rs output. Confirm: run probe-rs interactively for sweep results + RECOMMENDATION, or observe no panic with SD in slot. |
 
-**SD card:** Both **sdio_raw_test** (10 MiB at 1 MHz) and **sdio_speed_sweep** (1/4/8/12/24 MHz) were run again 2025-03-08. Defmt does not appear in captured logs; use interactive probe-rs on the remote or board observation to confirm pass/fail. **To record observed results** (including speed sweep per-frequency outcomes), use [logs/OBSERVED-RESULTS.md](logs/OBSERVED-RESULTS.md) and add a row to [docs/SDIO-CLOCK-SPEEDS.md](docs/SDIO-CLOCK-SPEEDS.md).
+**SD card:** Both **sdio_raw_test** (10 MiB at 1 MHz) and **sdio_speed_sweep** (1/4/8/12/24 MHz) were run again 2025-03-08. Defmt does not appear in captured logs; use interactive probe-rs on the remote or board observation to confirm pass/fail. **To record observed results** (including speed sweep per-frequency outcomes), add a row to [docs/SDIO-CLOCK-SPEEDS.md](docs/SDIO-CLOCK-SPEEDS.md).
 
 ## Ordered checklist
 

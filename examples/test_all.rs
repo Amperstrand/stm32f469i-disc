@@ -927,7 +927,7 @@ fn test_touch(delay: &mut SysDelay) {
 
             while remaining_ms > 0 {
                 let mut status_buf = [0u8; 1];
-                match i2c.write_read(FT6X06_I2C_ADDR, &[0x0E], &mut status_buf) {
+                match i2c.write_read(FT6X06_I2C_ADDR, &[0x02], &mut status_buf) {
                     Ok(()) if status_buf[0] > 0 => {
                         let mut touch_buf = [0u8; 6];
                         if let Ok(()) = i2c.write_read(FT6X06_I2C_ADDR, &[0x03], &mut touch_buf) {

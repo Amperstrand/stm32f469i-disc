@@ -208,7 +208,6 @@ For RTIC applications, route the `OTG_FS` interrupt to your task.
 
 Only one USB feature can be enabled at a time:
 - `usb_fs` - Full-Speed (use this for STM32F469I-DISCO)
-- `usb_hs` - High-Speed (not available on this board's connector)
 
 ## Hardware Notes
 
@@ -238,7 +237,7 @@ The STM32F469I-DISCO USB operates in bus-powered mode. The board receives power 
 ## Related Examples
 
 The HAL repository includes a complete CDC-ACM example at:
-- `examples/usb-serial-poll.rs` - Polling-based CDC serial port
+- `examples/test_usb_standalone.rs` - Standalone USB CDC test (no RTT/probe-rs)
 
 ## Troubleshooting
 

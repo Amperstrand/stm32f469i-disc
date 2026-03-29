@@ -92,6 +92,9 @@ where
 /// for SDXC stabilization, then switches to `data_freq` for data transfer. Use this for
 /// production with [`ClockFreq::F1Mhz`] (or call [`init_card`]) or for testing other speeds.
 ///
+/// Note: `data_freq` is accepted but not yet applied — the HAL's `set_bus()` method is
+/// currently private. The card runs at 400 kHz until this is resolved.
+///
 /// # Arguments
 /// * `sdio` - Initialized SDIO host from [`init`]
 /// * `delay` - Delay implementation (e.g. SYST delay)

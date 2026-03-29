@@ -21,8 +21,8 @@ pub type LD3 = PD5<Output<PushPull>>;
 /// Blue LED
 pub type LD4 = PK3<Output<PushPull>>;
 
-/// User LED colors
-#[derive(Clone, Copy)]
+/// User LED color variants.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LedColor {
     Green,
     Orange,
@@ -30,12 +30,13 @@ pub enum LedColor {
     Blue,
 }
 
-// All user LEDs
+/// Collection of all four on-board user LEDs.
 pub struct Leds {
     leds: [Led; 4],
 }
 
 impl Leds {
+    /// Create a new `Leds` instance from GPIO port parts.
     pub fn new(gpiod: gpiod::Parts, gpiog: gpiog::Parts, gpiok: gpiok::Parts) -> Self {
         let green = gpiog.pg6.into_push_pull_output();
         let orange = gpiod.pd4.into_push_pull_output();
@@ -47,6 +48,7 @@ impl Leds {
         }
     }
 
+    /// Iterate mutably over the four LEDs.
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, Led> {
         self.leds.iter_mut()
     }
@@ -94,7 +96,7 @@ impl core::ops::IndexMut<LedColor> for Leds {
     }
 }
 
-/// Individual LED
+/// Individual LED wrapping an erased GPIO output pin.
 pub struct Led {
     pin: ErasedPin<Output<PushPull>>,
 }

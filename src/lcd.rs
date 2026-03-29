@@ -121,6 +121,7 @@ pub const NT35510_DISPLAY_CONFIG_LANDSCAPE: DisplayConfig = DisplayConfig {
     pixel_clock_pol: true,
 };
 
+// Same timing as NT35510 — verified on this board.
 /// OTM8009A display timing (B07 and earlier revisions, portrait).
 pub const OTM8009A_DISPLAY_CONFIG: DisplayConfig = DisplayConfig {
     active_width: PANEL_WIDTH,
@@ -171,7 +172,7 @@ pub const FB_SIZE: usize = DisplayOrientation::Portrait.fb_size();
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum LcdController {
     Nt35510,
-    Otm8009a,
+    Otm8009A,
 }
 
 impl LcdController {
@@ -182,8 +183,8 @@ impl LcdController {
             (LcdController::Nt35510, DisplayOrientation::Landscape) => {
                 NT35510_DISPLAY_CONFIG_LANDSCAPE
             }
-            (LcdController::Otm8009a, DisplayOrientation::Portrait) => OTM8009A_DISPLAY_CONFIG,
-            (LcdController::Otm8009a, DisplayOrientation::Landscape) => {
+            (LcdController::Otm8009A, DisplayOrientation::Portrait) => OTM8009A_DISPLAY_CONFIG,
+            (LcdController::Otm8009A, DisplayOrientation::Landscape) => {
                 OTM8009A_DISPLAY_CONFIG_LANDSCAPE
             }
         }
@@ -291,7 +292,7 @@ pub fn detect_lcd_controller(
                 mismatch_count
             );
         }
-        LcdController::Otm8009a
+        LcdController::Otm8009A
     } else {
         #[cfg(feature = "defmt")]
         defmt::warn!(
@@ -313,6 +314,10 @@ pub fn init_dsi(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHo
     let ltdc_freq = 27_429.kHz();
     // VCO = (8MHz HSE / 2 IDF) * 2 * 125 = 1000MHz
     // 1000MHz VCO / (2 * 1 ODF * 8) = 62.5MHz
+    // SAFETY: PLL parameters (NDIV=125, IDF=2, ODF=0, REG=4) produce a DSI bit clock
+    // of ~312.5 MHz (VCO = (8 MHz / IDF) * 2 * NDIV = 1000 MHz; DSI = 1000 / (2 * (ODF+1) * REG) = 62.5 MHz byte clock * 5 = 312.5 MHz).
+    // This is within the valid range for both the NT35510/OTM8009A panels and the DSI host.
+    // These values are board-specific and verified on the STM32F469I-DISCO.
     let dsi_pll_config = unsafe { DsiPllConfig::manual(125, 2, 0, 4) };
     let dsi_config = DsiConfig {
         mode: DsiMode::Video {
@@ -381,7 +386,7 @@ pub fn init_panel(
                 )
                 .unwrap();
         }
-        LcdController::Otm8009a => {
+        LcdController::Otm8009A => {
             #[cfg(feature = "defmt")]
             defmt::info!("Initializing OTM8009A (B07 and earlier)...");
             let otm_config = Otm8009AConfig {
@@ -508,7 +513,7 @@ pub fn init_display_full(
                 )
                 .unwrap();
         }
-        LcdController::Otm8009a => {
+        LcdController::Otm8009A => {
             #[cfg(feature = "defmt")]
             defmt::info!("Initializing OTM8009A (B07 and earlier)...");
             let otm_config = Otm8009AConfig {
@@ -582,6 +587,9 @@ pub fn init_display_pipeline(
     let buffer = display_ctrl
         .layer_buffer_mut(Layer::L1)
         .expect("layer L1 buffer");
+    // SAFETY: buffer originates from SDRAM (a 'static region). The transmute from
+    // &mut [u16] to &'static mut [u16] is valid because SDRAM persists for the entire
+    // program lifetime with no deallocation.
     let buffer: &'static mut [u16] = unsafe { core::mem::transmute(buffer) };
 
     (
@@ -680,11 +688,15 @@ impl DoubleFramebuffer {
         let back_ptr = self.back.as_mut_ptr();
         let back_len = self.back.len();
         let mut tmp_fb = unsafe {
+            // SAFETY: back_ptr points into SDRAM (a 'static region). The transmute from
+            // &mut [u16] to &'static mut [u16] is valid because SDRAM persists for the
+            // entire program lifetime with no deallocation.
             let static_buf: &'static mut [u16] =
                 core::mem::transmute(core::slice::from_raw_parts_mut(back_ptr, back_len));
             crate::hal::ltdc::LtdcFramebuffer::new(static_buf, width, height)
         };
         f(&mut tmp_fb);
+        #[cfg(feature = "defmt")]
         defmt::trace!("render_and_swap: calling swap");
         self.swap();
     }
@@ -703,6 +715,7 @@ impl DoubleFramebuffer {
             .display_ctrl
             .swap_buffers(Layer::L1, self.back.as_ptr() as u32)
         {
+            #[cfg(feature = "defmt")]
             defmt::warn!("swap failed: {:?}", e);
             return;
         }

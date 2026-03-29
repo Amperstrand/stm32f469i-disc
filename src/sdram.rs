@@ -299,6 +299,16 @@ pub const SDRAM_SIZE_BYTES: usize = 16 * 1024 * 1024;
 /// The F469 Discovery has 16MB of SDRAM mapped at address 0xC0000000.
 /// This struct provides safe(r) access to this memory region with typed slices.
 ///
+/// # Safety
+///
+/// The `mem` pointer points to the FMC-controlled SDRAM region at 0xC0000000.
+/// This region is valid for the entire program lifetime — it is never deallocated
+/// and is properly aligned for all primitive widths (u8, u16, u32).
+///
+/// Callers must not create overlapping mutable references to the same SDRAM
+/// region through multiple `Sdram` instances or by combining raw pointer access
+/// with the typed slice methods. Violating this is undefined behavior.
+///
 /// # Usage
 ///
 /// ```ignore
@@ -309,7 +319,9 @@ pub const SDRAM_SIZE_BYTES: usize = 16 * 1024 * 1024;
 /// let fb = LtdcFramebuffer::new(fb_buffer, 480, 800);
 /// ```
 pub struct Sdram {
-    /// Raw pointer to SDRAM base (public for backward compatibility)
+    /// Raw pointer to SDRAM base (public for backward compatibility).
+    ///
+    /// Points to 0xC0000000, valid for `'static`, aligned for u32.
     pub mem: *mut u32,
     /// Number of u32 words in SDRAM (4M words = 16MB)
     pub words: usize,

@@ -28,7 +28,7 @@ fn main() -> ! {
 
     let mut rcc = dp.RCC.freeze(
         hal::rcc::Config::hse(8.MHz())
-            .sysclk(168.MHz())
+            .sysclk(180.MHz())
             .require_pll48clk(),
     );
 

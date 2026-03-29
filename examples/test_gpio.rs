@@ -32,12 +32,6 @@ fn pass(name: &str) {
     defmt::info!("TEST {}: PASS", name);
 }
 
-#[allow(dead_code)]
-fn fail(name: &str, reason: &str) {
-    FAILED.fetch_add(1, Ordering::Relaxed);
-    defmt::error!("TEST {}: FAIL {}", name, reason);
-}
-
 #[entry]
 fn main() -> ! {
     if let (Some(p), Some(cp)) = (pac::Peripherals::take(), Peripherals::take()) {

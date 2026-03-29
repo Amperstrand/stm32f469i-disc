@@ -19,8 +19,10 @@ use crate::hal::prelude::*;
 use crate::hal::rcc::Rcc;
 use ft6x06_rs::FT6x06;
 
+/// I2C address of the FT6X06 touch controller (0x38, 7-bit).
 pub const FT6X06_I2C_ADDR: u8 = 0x38;
 
+/// Initialize I2C1 on PB8 (SCL) / PB9 (SDA) at 400 kHz.
 pub fn init_i2c(
     i2c: I2C1,
     pb8: impl Into<i2c1::Scl>,
@@ -30,6 +32,7 @@ pub fn init_i2c(
     I2c::new(i2c, (pb8, pb9), 400.kHz(), rcc)
 }
 
+/// Create an FT6X06 driver instance on the given I2C bus.
 pub fn init_ft6x06(i2c: I2c<I2C1>) -> FT6x06<I2c<I2C1>> {
     FT6x06::new_with_addr(i2c, FT6X06_I2C_ADDR)
 }

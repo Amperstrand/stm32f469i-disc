@@ -1,6 +1,9 @@
 stm32f469i-disc
 ================
 Board support package for the STM32F469I-DISCOVERY kit.
+
+> **Note:** This BSP is in maintenance mode. For new projects, use [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco).
+
 Quick Start
 -----------
 
@@ -35,7 +38,7 @@ Documentation Links
 - [Display Pixel Formats](docs/DISPLAY-PIXEL-FORMATS.md) - RGB565 vs ARGB8888 tradeoffs
 - [SDIO clock speeds](docs/SDIO-CLOCK-SPEEDS.md) - Specs, tradeoffs, and test results table
 - [Hardware test plan](docs/HARDWARE-TEST-PLAN.md) - Run all examples on the board and record results
-- [Testing Guide](../STM32F469_HAL_BSP_TESTING.md) - Full HAL/BSP testing instructions
+
 
 Board Hardware
 --------------
@@ -87,7 +90,7 @@ Building
 Build all examples:
 
 ```bash
-./scripts/build-examples.sh
+make build-all
 ```
 
 Or build individually:
@@ -98,30 +101,11 @@ cargo build --example fmc_sdram_test
 cargo build --example display_dsi_lcd
 cargo build --example display_hello_eg --features framebuffer
 cargo build --example display_touch
-cargo build --example usb_cdc_serial
+cargo build --example usb_cdc_serial --features usb_fs
 cargo build --example sdio_raw_test
 ```
 
 Binaries are under `target/thumbv7em-none-eabihf/release/examples/<name>`.
-
-Running on device (remote)
---------------------------
-To run on the board from a host that has the probe (e.g. Ubuntu with probe-rs):
-
-1. Copy the built ELF to the host and run with probe-rs:
-
-```bash
-scp target/thumbv7em-none-eabihf/release/examples/gpio_hal_blinky ubuntu@192.168.13.246:/tmp/
-
-# On ubuntu@192.168.13.246
-probe-rs run --chip STM32F469NIHx /tmp/gpio_hal_blinky
-```
-
-2. Or use the deploy-and-run script (builds, scps, and runs in one go):
-
-```bash
-./scripts/deploy-and-run.sh gpio_hal_blinky
-```
 
 Running locally
 ---------------
@@ -146,11 +130,11 @@ Run individual tests:
 
     ./run_tests.sh test_led         # LED on/off, toggle, patterns (16 tests)
     ./run_tests.sh test_sdram       # Fast SDRAM spot-checks (14 tests, ~10s)
-    ./run_tests.sh test_sdram_full  # Exhaustive SDRAM tests, all 16MB (16 tests, ~3-5min)
+    ./run_tests.sh test_sdram_full  # Exhaustive SDRAM tests, all 16MB (13 tests, ~3-5min)
     ./run_tests.sh test_gpio        # PA0 button input, GPIO output (5 tests)
     ./run_tests.sh test_uart        # USART1 TX, formatted output (4 tests)
     ./run_tests.sh test_timers      # TIM2/TIM3 delays, PWM, cancel (8 tests)
-    ./run_tests.sh test_dma         # DMA2 mem-to-mem transfers (4 tests)
+    ./run_tests.sh test_dma         # DMA2 mem-to-mem transfers (5 tests)
     ./run_tests.sh test_lcd         # DSI LCD init, color fills (13 tests)
     ./run_tests.sh test_all         # All non-USB in one flash (~42 tests, ~60s)
 
@@ -191,7 +175,7 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | `test_lcd` | DSI, LTDC, OTM8009A | 13 | PASS | Probe |
 | `test_touch` | I2C1, FT6X06 | 5 | PASS | Probe |
 | `test_all` | All above + RNG + ADC | 44 | PASS | Probe |
-| `hw_diag` | All above (on-screen) | 23 | PASS | Probe |
+| `hw_diag` | All above (on-screen) | — | BUILT | — |
 | `test_soak` | SDRAM, GPIO | continuous | built | Probe |
 | `test_usb_standalone` | USB OTG FS | 5 | not run | Standalone |
 
@@ -211,7 +195,7 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | RNG | test_all (rng) | 3/3 | Non-zero, uniqueness, consecutive differ |
 | ADC temp sensor | test_all (adc) | 2/2 | Temperature and Vrefint reads |
 | All-in-one | test_all | 44/44 | Single flash, Peripherals::steal() between suites |
-| On-screen diag | hw_diag | 23/23 | Embedded-graphics display, touch demo |
+| On-screen diag | hw_diag | builds clean | On-screen diagnostics (not run on device) |
 | USB CDC | test_usb_standalone | — | Builds clean; requires st-flash + USB cable (not run) |
 
 ### How probe-rs output works

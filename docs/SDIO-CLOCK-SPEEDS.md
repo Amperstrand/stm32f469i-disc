@@ -49,9 +49,9 @@ This document summarizes manufacturer recommendations and tradeoffs for SD/SDXC 
 
 ### How we tested (1, 4, 8, 12, 24 MHz)
 
-The `sdio_speed_sweep` example runs a short read test (256 blocks) at each of 1, 4, 8, 12, and 24 MHz, prints PASS/FAIL per frequency, then a RECOMMENDATION (highest passing speed) and TRADEOFFS, then a full 10 MiB read at 1 MHz. **We have run this on the STM32F469I-DISCO** (one frequency per run via `./scripts/run-sweep-remote-capture.sh`); results are captured via a results buffer and written to `logs/sweep_analysis.txt`. To add a row for your card:
+The `sdio_speed_sweep` example runs a short read test (256 blocks) at each of 1, 4, 8, 12, and 24 MHz, prints PASS/FAIL per frequency, then a RECOMMENDATION (highest passing speed) and TRADEOFFS, then a full 10 MiB read at 1 MHz. **We have run this on the STM32F469I-DISCO** (one frequency per run); results are captured via a results buffer and written to `logs/sweep_analysis.txt`. To add a row for your card:
 
-1. Run the sweep: `./scripts/run-sweep-remote-capture.sh` (builds per frequency, runs on remote host, retrieves and parses results), or run probe-rs interactively on the host and copy defmt output.
+1. Run the sweep: build per frequency, run on host with probe-rs, and copy defmt output.
 2. Add a row to the table below with date, card identifier, ✅/❌ per frequency, and Notes (e.g. RECOMMENDATION from the script).
 
 ## Test results (STM32F469I-DISCO)
@@ -62,7 +62,7 @@ The `sdio_speed_sweep` example runs a short read test (256 blocks) at each of 1,
 |------------|------------------------|-------|-------|-------|--------|--------|-------|
 | 2026-03-08 | (board run; card TBD)  | ✅    | ✅    | ✅    | ✅     | ✅     | One-freq-per-run sweep; RECOMMENDATION: 24 MHz |
 | 2026-03-06 | (example 64GB SDXC)    | ✅    | —     | —     | ❌     | —      | 12 MHz: SoftwareTimeout |
-| (add row)  | (your card)            |       |       |       |        |        | Run `./scripts/run-sweep-remote-capture.sh` or interactive probe-rs; see "How we tested" above |
+| (add row)  | (your card)            |       |       |       |        |        | Run interactive probe-rs; see "How we tested" above |
 
 ---
 
