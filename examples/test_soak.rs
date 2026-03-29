@@ -67,7 +67,7 @@ fn main() -> ! {
             count += 1;
 
             // SDRAM pattern: alternate 0xAAAAAAAA / 0x55555555
-            let pattern: u32 = if count % 2 == 0 {
+            let pattern: u32 = if count.is_multiple_of(2) {
                 0xAAAAAAAA
             } else {
                 0x55555555
@@ -88,7 +88,7 @@ fn main() -> ! {
             }
 
             // Also do address pattern every 10 cycles
-            if count % 10 == 0 {
+            if count.is_multiple_of(10) {
                 for (i, w) in ram[..win].iter_mut().enumerate() {
                     *w = (i as u32) ^ 0xDEADBEEF;
                 }
@@ -105,7 +105,7 @@ fn main() -> ! {
                 }
             }
 
-            if count % 120 == 0 {
+            if count.is_multiple_of(120) {
                 defmt::info!("soak: {} heartbeats, {} errors", count, errors);
             }
         }

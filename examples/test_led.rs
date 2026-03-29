@@ -173,7 +173,7 @@ fn main() -> ! {
         // Test 9: Deref/DerefMut access
         test_start("deref_access");
         {
-            let slice: &[board::led::Led] = &*leds;
+            let slice: &[board::led::Led] = &leds;
             if slice.len() != 4 {
                 fail("deref_access", "expected 4 LEDs");
             } else {

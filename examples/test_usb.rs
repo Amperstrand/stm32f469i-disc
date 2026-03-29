@@ -142,7 +142,7 @@ fn main() -> ! {
 
         // LED blink every 500 polls
         let polls = POLL_COUNT.load(Ordering::Relaxed);
-        if polls % 500 == 0 {
+        if polls.is_multiple_of(500) {
             led_state = !led_state;
             if led_state {
                 led.set_high();
@@ -152,7 +152,7 @@ fn main() -> ! {
         }
 
         // After echo test is done, run sustained poll test
-        if echo_done && !serial.read(&mut []).is_err() {
+        if echo_done && serial.read(&mut []).is_ok() {
             // Test 3: Sustained poll
             defmt::info!("TEST usb_sustained_poll: RUNNING");
             let target = POLL_COUNT.load(Ordering::Relaxed) + 10000;

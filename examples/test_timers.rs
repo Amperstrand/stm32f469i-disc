@@ -75,7 +75,7 @@ fn main() -> ! {
             let elapsed = DWT::cycle_count().wrapping_sub(start);
             let us = cycles_to_us(elapsed);
             defmt::info!("  180K nops: {}us", us);
-            if us >= 500 && us <= 15000 {
+            if (500..=15000).contains(&us) {
                 pass("dwt_1ms");
             } else {
                 fail("dwt_1ms", "DWT timing out of range");
@@ -92,7 +92,7 @@ fn main() -> ! {
             let elapsed = DWT::cycle_count().wrapping_sub(start);
             let us = cycles_to_us(elapsed);
             defmt::info!("  TIM2 1ms delay: {}us", us);
-            if us >= 900 && us <= 1500 {
+            if (900..=1500).contains(&us) {
                 pass("tim2_counter_us_1ms");
             } else {
                 fail("tim2_counter_us_1ms", "1ms delay out of range");
@@ -110,7 +110,7 @@ fn main() -> ! {
             let elapsed = DWT::cycle_count().wrapping_sub(start);
             let us = cycles_to_us(elapsed);
             defmt::info!("  TIM2 500us delay: {}us", us);
-            if us >= 400 && us <= 700 {
+            if (400..=700).contains(&us) {
                 pass("tim2_counter_us_500us");
             } else {
                 fail("tim2_counter_us_500us", "500us delay out of range");
@@ -128,7 +128,7 @@ fn main() -> ! {
             let elapsed = DWT::cycle_count().wrapping_sub(start);
             let ms = cycles_to_ms(elapsed);
             defmt::info!("  TIM3 50ms delay: {}ms", ms);
-            if ms >= 45 && ms <= 70 {
+            if (45..=70).contains(&ms) {
                 pass("tim3_counter_us_50ms");
             } else {
                 fail("tim3_counter_us_50ms", "50ms delay out of range");
@@ -161,9 +161,9 @@ fn main() -> ! {
             let mut ch1 = ch1.with(gpioa.pa0);
             ch1.enable();
             ch1.set_duty(ch1.get_duty() / 2);
-            let _ = pwm.set_period(10.kHz());
+            pwm.set_period(10.kHz());
             ch1.set_duty(ch1.get_duty() / 2);
-            let _ = pwm.set_period(100.kHz());
+            pwm.set_period(100.kHz());
             ch1.set_duty(ch1.get_duty() / 4);
             ch1.disable();
             pass("tim2_pwm_freq_change");

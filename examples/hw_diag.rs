@@ -621,8 +621,8 @@ fn main() -> ! {
 
         // Render SDRAM results
         draw_section(&mut fb, &mut y, "SDRAM (16MB IS42S32400F-6)", &header_style);
-        for i in 0..ri {
-            draw_result(&mut fb, &mut y, &results[i], &style);
+        for result in &results[..ri] {
+            draw_result(&mut fb, &mut y, result, &style);
         }
 
         // === Display tests ===
@@ -906,7 +906,7 @@ fn main() -> ! {
             delay.delay_us(1000u32);
             let us = DWT::cycle_count().wrapping_sub(start) / 180;
             defmt::info!("  1ms delay: {}us", us);
-            us >= 900 && us <= 1500
+            (900..=1500).contains(&us)
         });
 
         tpass!("Timer 50ms (DWT)", {
@@ -914,7 +914,7 @@ fn main() -> ! {
             delay.delay_ms(50u32);
             let ms = DWT::cycle_count().wrapping_sub(start) / 180_000;
             defmt::info!("  50ms delay: {}ms", ms);
-            ms >= 45 && ms <= 70
+            (45..=70).contains(&ms)
         });
 
         // === Summary screen ===
@@ -931,8 +931,8 @@ fn main() -> ! {
             "SDRAM (16MB IS42S32400F-6)",
             &header_style,
         );
-        for i in 0..6 {
-            draw_result(&mut fb, &mut sy, &results[i], &style);
+        for result in &results[..6] {
+            draw_result(&mut fb, &mut sy, result, &style);
         }
 
         draw_section(
@@ -941,28 +941,28 @@ fn main() -> ! {
             "Display (DSI/LTDC/NT35510)",
             &header_style,
         );
-        for i in 6..11 {
-            draw_result(&mut fb, &mut sy, &results[i], &style);
+        for result in &results[6..11] {
+            draw_result(&mut fb, &mut sy, result, &style);
         }
 
         draw_section(&mut fb, &mut sy, "Touch (FT6X06 / I2C1)", &header_style);
-        for i in 11..14 {
-            draw_result(&mut fb, &mut sy, &results[i], &style);
+        for result in &results[11..14] {
+            draw_result(&mut fb, &mut sy, result, &style);
         }
 
         draw_section(&mut fb, &mut sy, "GPIO", &header_style);
-        for i in 14..16 {
-            draw_result(&mut fb, &mut sy, &results[i], &style);
+        for result in &results[14..16] {
+            draw_result(&mut fb, &mut sy, result, &style);
         }
 
         draw_section(&mut fb, &mut sy, "LEDs", &header_style);
-        for i in 16..21 {
-            draw_result(&mut fb, &mut sy, &results[i], &style);
+        for result in &results[16..21] {
+            draw_result(&mut fb, &mut sy, result, &style);
         }
 
         draw_section(&mut fb, &mut sy, "Timers", &header_style);
-        for i in 21..ri {
-            draw_result(&mut fb, &mut sy, &results[i], &style);
+        for result in &results[21..ri] {
+            draw_result(&mut fb, &mut sy, result, &style);
         }
 
         draw_summary(&mut fb, &results[..ri], sy, &style, &header_style);
@@ -1002,32 +1002,23 @@ fn main() -> ! {
             match i2c.write_read(FT6X06_I2C_ADDR, &[0x02], &mut status_buf) {
                 Ok(()) if status_buf[0] > 0 => {
                     let mut touch_buf = [0u8; 4];
-                    match i2c.write_read(FT6X06_I2C_ADDR, &[0x03], &mut touch_buf) {
-                        Ok(()) => {
-                            let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
-                            let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
-                            if x >= 3 && x <= 476 && y >= 3 && y <= 796 {
-                                defmt::info!("Touch at ({}, {})", x, y);
-                                draw_touch_prompt(&mut fb, &touch_style, &touch_header);
-                                draw_touch_point(&mut fb, x, y, &touch_style);
-                                draw_text(
-                                    &mut fb,
-                                    "Touches: ",
-                                    8,
-                                    HEIGHT as i32 - 50,
-                                    &touch_style,
-                                );
-                                draw_u32_text(
-                                    &mut fb,
-                                    62,
-                                    HEIGHT as i32 - 50,
-                                    &touch_style,
-                                    touch_count + 1,
-                                );
-                                touch_count += 1;
-                            }
+                    if let Ok(()) = i2c.write_read(FT6X06_I2C_ADDR, &[0x03], &mut touch_buf) {
+                        let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
+                        let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
+                        if (3..=476).contains(&x) && (3..=796).contains(&y) {
+                            defmt::info!("Touch at ({}, {})", x, y);
+                            draw_touch_prompt(&mut fb, &touch_style, &touch_header);
+                            draw_touch_point(&mut fb, x, y, &touch_style);
+                            draw_text(&mut fb, "Touches: ", 8, HEIGHT as i32 - 50, &touch_style);
+                            draw_u32_text(
+                                &mut fb,
+                                62,
+                                HEIGHT as i32 - 50,
+                                &touch_style,
+                                touch_count + 1,
+                            );
+                            touch_count += 1;
                         }
-                        Err(_) => {}
                     }
                 }
                 _ => {}

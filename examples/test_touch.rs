@@ -131,7 +131,7 @@ fn main() -> ! {
                             Ok(()) => {
                                 let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
                                 let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
-                                if x >= 3 && x <= 476 && y >= 3 && y <= 796 {
+                                if (3..=476).contains(&x) && (3..=796).contains(&y) {
                                     defmt::info!("  Touch at x={}, y={}", x, y);
                                     pass("touch_read_interactive");
                                     touch_detected = true;

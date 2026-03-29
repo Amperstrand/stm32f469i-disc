@@ -304,9 +304,9 @@ fn main() -> ! {
     let mut hue = 0u32;
     loop {
         for row in 0..HEIGHT {
-            let r = ((hue + row as u32 * 3) % 256) as u32;
-            let g = ((hue + row as u32 * 3 + 85) % 256) as u32;
-            let b = ((hue + row as u32 * 3 + 170) % 256) as u32;
+            let r = (hue + row as u32 * 3) % 256;
+            let g = (hue + row as u32 * 3 + 85) % 256;
+            let b = (hue + row as u32 * 3 + 170) % 256;
             let color = (r << 16) | (g << 8) | b;
             let start = row * WIDTH;
             for pixel in fb.iter_mut().take(WIDTH).skip(start) {

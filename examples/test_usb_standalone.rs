@@ -167,7 +167,7 @@ fn main() -> ! {
         }
 
         // LED blink
-        if poll_count % 1000 == 0 {
+        if poll_count.is_multiple_of(1000) {
             led_state = !led_state;
             if led_state {
                 led.set_high();

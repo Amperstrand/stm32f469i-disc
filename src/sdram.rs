@@ -10,6 +10,66 @@ use stm32f4xx_hal::rcc::Clocks;
 // Re-export FMC alternate pin types for the sdram_pins! macro
 #[doc(hidden)]
 pub use crate::hal::gpio::alt::fmc as alt;
+
+type SdramPinsTuple = (
+    alt::A0,
+    alt::A1,
+    alt::A2,
+    alt::A3,
+    alt::A4,
+    alt::A5,
+    alt::A6,
+    alt::A7,
+    alt::A8,
+    alt::A9,
+    alt::A10,
+    alt::A11,
+    alt::Ba0,
+    alt::Ba1,
+    alt::D0,
+    alt::D1,
+    alt::D2,
+    alt::D3,
+    alt::D4,
+    alt::D5,
+    alt::D6,
+    alt::D7,
+    alt::D8,
+    alt::D9,
+    alt::D10,
+    alt::D11,
+    alt::D12,
+    alt::D13,
+    alt::D14,
+    alt::D15,
+    alt::D16,
+    alt::D17,
+    alt::D18,
+    alt::D19,
+    alt::D20,
+    alt::D21,
+    alt::D22,
+    alt::D23,
+    alt::D24,
+    alt::D25,
+    alt::D26,
+    alt::D27,
+    alt::D28,
+    alt::D29,
+    alt::D30,
+    alt::D31,
+    alt::Nbl0,
+    alt::Nbl1,
+    alt::Nbl2,
+    alt::Nbl3,
+    alt::Sdcke0,
+    alt::Sdclk,
+    alt::Sdncas,
+    alt::Sdne0,
+    alt::Sdnras,
+    alt::Sdnwe,
+);
+
 /// Construct the pin tuple for the FMC SDRAM controller.
 ///
 /// Takes GPIO port Parts structs and extracts the pins needed for the IS42S32400F-6BL
@@ -141,70 +201,7 @@ pub fn split_sdram_pins(
     gpioh: hal::gpio::gpioh::Parts,
     gpioi: hal::gpio::gpioi::Parts,
 ) -> (
-    // SDRAM pins tuple (same as sdram_pins! macro output)
-    (
-        // Address pins
-        alt::A0,
-        alt::A1,
-        alt::A2,
-        alt::A3,
-        alt::A4,
-        alt::A5,
-        alt::A6,
-        alt::A7,
-        alt::A8,
-        alt::A9,
-        alt::A10,
-        alt::A11,
-        // Bank pins
-        alt::Ba0,
-        alt::Ba1,
-        // Data pins
-        alt::D0,
-        alt::D1,
-        alt::D2,
-        alt::D3,
-        alt::D4,
-        alt::D5,
-        alt::D6,
-        alt::D7,
-        alt::D8,
-        alt::D9,
-        alt::D10,
-        alt::D11,
-        alt::D12,
-        alt::D13,
-        alt::D14,
-        alt::D15,
-        alt::D16,
-        alt::D17,
-        alt::D18,
-        alt::D19,
-        alt::D20,
-        alt::D21,
-        alt::D22,
-        alt::D23,
-        alt::D24,
-        alt::D25,
-        alt::D26,
-        alt::D27,
-        alt::D28,
-        alt::D29,
-        alt::D30,
-        alt::D31,
-        // NBL pins
-        alt::Nbl0,
-        alt::Nbl1,
-        alt::Nbl2,
-        alt::Nbl3,
-        // Control pins
-        alt::Sdcke0,
-        alt::Sdclk,
-        alt::Sdncas,
-        alt::Sdne0,
-        alt::Sdnras,
-        alt::Sdnwe,
-    ),
+    SdramPinsTuple,
     // Remaining pins for VLS
     SdramRemainders,
     // LCD reset pin (consumed by init_display)
@@ -381,14 +378,14 @@ impl Sdram {
         let type_align = mem::align_of::<T>();
 
         assert!(
-            SDRAM_SIZE_BYTES % type_size == 0,
+            SDRAM_SIZE_BYTES.is_multiple_of(type_size),
             "Type size {} doesn't evenly divide SDRAM size {}",
             type_size,
             SDRAM_SIZE_BYTES
         );
 
         assert!(
-            (self.mem as usize) % type_align == 0,
+            (self.mem as usize).is_multiple_of(type_align),
             "SDRAM base address not aligned for type T (align={})",
             type_align
         );
@@ -423,7 +420,7 @@ impl Sdram {
         let end = start + len_elements * type_size;
 
         assert!(
-            start % type_align == 0,
+            start.is_multiple_of(type_align),
             "Offset {} not aligned for type T (align={})",
             offset_bytes,
             type_align

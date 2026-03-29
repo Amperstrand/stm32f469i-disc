@@ -343,7 +343,7 @@ fn test_timers() {
             ctr.start(1.millis()).unwrap();
             block!(ctr.wait()).unwrap();
             let us = DWT::cycle_count().wrapping_sub(start) / 180;
-            if us >= 900 && us <= 1500 {
+            if (900..=1500).contains(&us) {
                 pass("tim2_1ms");
             } else {
                 fail("tim2_1ms", "out of range");
@@ -357,7 +357,7 @@ fn test_timers() {
             ctr.start(50.millis()).unwrap();
             block!(ctr.wait()).unwrap();
             let ms = DWT::cycle_count().wrapping_sub(start) / 180_000;
-            if ms >= 45 && ms <= 70 {
+            if (45..=70).contains(&ms) {
                 pass("tim3_50ms");
             } else {
                 fail("tim3_50ms", "out of range");
@@ -544,7 +544,7 @@ fn test_adc_temp() {
         // Test 1: Read temperature sensor
         defmt::info!("TEST adc_temp_read: RUNNING");
         {
-            let sample = adc.convert(&mut adc::Temperature, adc::config::SampleTime::Cycles_480);
+            let sample = adc.convert(&adc::Temperature, adc::config::SampleTime::Cycles_480);
             // Raw ADC value for temp sensor at 12-bit resolution
             // Typical range: 0-4095, room temp is roughly 500-800
             if sample > 100 && sample < 4095 {
@@ -558,7 +558,7 @@ fn test_adc_temp() {
         // Test 2: Read VREFINT
         defmt::info!("TEST adc_vrefint_read: RUNNING");
         {
-            let sample = adc.convert(&mut adc::Vref, adc::config::SampleTime::Cycles_480);
+            let sample = adc.convert(&adc::Vref, adc::config::SampleTime::Cycles_480);
             // VREFINT should be ~1500 (1.2V / 3.3V * 4095)
             if sample > 500 && sample < 3000 {
                 defmt::info!("  ADC vrefint raw: {}", sample);
@@ -606,7 +606,7 @@ fn test_sdram(delay: &mut SysDelay) {
             for w in ram[..win].iter_mut() {
                 *w = 0xAAAAAAAA;
             }
-            for (_i, w) in ram[..win].iter().enumerate() {
+            for w in ram[..win].iter() {
                 if *w != 0xAAAAAAAA {
                     fail("sdram_checkerboard", "mismatch");
                     ok = false;
@@ -626,7 +626,7 @@ fn test_sdram(delay: &mut SysDelay) {
             for w in ram[..win].iter_mut() {
                 *w = 0x55555555;
             }
-            for (_i, w) in ram[..win].iter().enumerate() {
+            for w in ram[..win].iter() {
                 if *w != 0x55555555 {
                     fail("sdram_inv_check", "mismatch");
                     ok = false;
@@ -668,7 +668,7 @@ fn test_sdram(delay: &mut SysDelay) {
                 *w = rng.next();
             }
             let mut rng = XorShift32::new(0xDEADBEEF);
-            for (_i, w) in ram[..win].iter().enumerate() {
+            for w in ram[..win].iter() {
                 let exp = rng.next();
                 if *w != exp {
                     fail("sdram_random", "mismatch");
@@ -700,7 +700,7 @@ fn test_sdram(delay: &mut SysDelay) {
                 let offset = r * stride;
                 let pattern = 0xFEED0000 | (r as u32);
                 let end = core::cmp::min(offset + region_size, words);
-                for (_i, w) in ram[offset..end].iter().enumerate() {
+                for w in ram[offset..end].iter() {
                     if *w != pattern {
                         fail("sdram_boundary", "mismatch");
                         ok = false;
@@ -930,32 +930,29 @@ fn test_touch(delay: &mut SysDelay) {
                 match i2c.write_read(FT6X06_I2C_ADDR, &[0x0E], &mut status_buf) {
                     Ok(()) if status_buf[0] > 0 => {
                         let mut touch_buf = [0u8; 6];
-                        match i2c.write_read(FT6X06_I2C_ADDR, &[0x03], &mut touch_buf) {
-                            Ok(()) => {
-                                let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
-                                let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
-                                let event = if touch_buf[4] != 0 { "LIFT" } else { "TOUCH" };
-                                // 3px edge margin filter (phantom touches at edges)
-                                if x >= 3 && x <= 476 && y >= 3 && y <= 796 {
-                                    defmt::info!(
-                                        "  [{}] x={}, y={} ({}ms left)",
-                                        event,
-                                        x,
-                                        y,
-                                        remaining_ms / 1000
-                                    );
-                                    touch_count += 1;
-                                } else {
-                                    defmt::debug!(
-                                        "  [{}] phantom x={}, y={} ({}ms left)",
-                                        event,
-                                        x,
-                                        y,
-                                        remaining_ms / 1000
-                                    );
-                                }
+                        if let Ok(()) = i2c.write_read(FT6X06_I2C_ADDR, &[0x03], &mut touch_buf) {
+                            let x = ((touch_buf[0] & 0x0F) as u16) << 8 | touch_buf[1] as u16;
+                            let y = ((touch_buf[2] & 0x0F) as u16) << 8 | touch_buf[3] as u16;
+                            let event = if touch_buf[4] != 0 { "LIFT" } else { "TOUCH" };
+                            // 3px edge margin filter (phantom touches at edges)
+                            if (3..=476).contains(&x) && (3..=796).contains(&y) {
+                                defmt::info!(
+                                    "  [{}] x={}, y={} ({}ms left)",
+                                    event,
+                                    x,
+                                    y,
+                                    remaining_ms / 1000
+                                );
+                                touch_count += 1;
+                            } else {
+                                defmt::debug!(
+                                    "  [{}] phantom x={}, y={} ({}ms left)",
+                                    event,
+                                    x,
+                                    y,
+                                    remaining_ms / 1000
+                                );
                             }
-                            Err(_) => {}
                         }
                     }
                     _ => {}

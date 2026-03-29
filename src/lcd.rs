@@ -663,7 +663,7 @@ impl DoubleFramebuffer {
     /// This buffer is not being scanned out by the display controller,
     /// so writes are safe from tearing.
     pub fn back_buffer(&mut self) -> &mut [u16] {
-        &mut self.back
+        self.back
     }
 
     /// Execute a closure with a temporary `LtdcFramebuffer` wrapping the back
@@ -718,7 +718,7 @@ impl DoubleFramebuffer {
     ///
     /// Writing to this buffer while it is being displayed will cause tearing.
     pub fn front_buffer(&mut self) -> &mut [u16] {
-        &mut self.front
+        self.front
     }
 
     /// Consume the double framebuffer and return the currently displayed buffer.
