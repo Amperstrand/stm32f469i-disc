@@ -9,7 +9,6 @@
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 
 use stm32f469i_disc as board;
