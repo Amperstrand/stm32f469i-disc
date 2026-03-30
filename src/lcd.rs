@@ -204,7 +204,77 @@ pub enum BoardHint {
     /// Skip probe entirely — force NT35510 (B08 board).
     /// Use when DSI probe reads are known to be unreliable.
     ForceNt35510,
+    /// Auto-detect by probing I2C1 for FT6X06 touch controller before DSI init.
+    /// FT6X06 at 0x38 indicates NT35510 (B08); no response or different chip
+    /// suggests OTM8009A (B07). Falls back to DSI probe logic for confirmation.
+    /// Requires the `touch` feature.
+    Auto,
 }
+
+/// Probe I2C1 for the FT6X06 touch controller to determine board revision hint.
+///
+/// This is a lightweight pre-DSI check that runs before the display pipeline
+/// is initialized. On STM32F469I-DISCO:
+/// - **B08+ (NT35510 panel)**: FT6X06 at I2C address 0x38 (PB8=SDA, PB9=SCL)
+/// - **B07 and earlier (OTM8009A panel)**: No FT6X06; touch uses a different chip
+///
+/// Note: PH7 (LCD reset) must be toggled before calling this to power on
+/// the touch controller's I2C bus. Without this, FT6X06 will NACK all transactions.
+///
+/// Requires the `touch` feature. The function is defined inside a
+/// `#[cfg(feature = "touch")]` inline module to prevent the compiler from
+/// resolving `touch::FT6X06_I2C_ADDR` when the feature is disabled (Rust
+/// resolves paths before applying `#[cfg]` on items, causing spurious errors).
+///
+/// # How other projects handle this
+/// - **ST's official BSP** (`BSP_DISCO_F469NI`): Compile-time `#define`
+///   to select the LCD controller. No runtime detection.
+/// - **specter-diy**: Does no board revision detection. Assumes whatever panel
+///   is present works with their display init.
+/// - **lvgl/lv_porting_stm32**: Compile-time board config, similar to ST.
+/// - **mipidsi (EPD driver crate)**: Reads panel ID via MIPI DCS commands
+///   (same approach as our DSI probe, subject to the same read reliability issues).
+///
+/// # Limitations
+/// - Cannot distinguish MCU silicon revision from board revision (DBGMCU_IDCODE
+///   and UID are MCU-specific, not board-specific).
+/// - Touch controller presence is correlated with board revision but not
+///   definitive — a board could have a swapped touch controller.
+/// - I2C probe requires GPIO and RCC to be configured, which must be done
+///   before calling this function.
+#[cfg(feature = "touch")]
+mod board_probe {
+    use super::BoardHint;
+
+    const FT6X06_I2C_ADDR: u8 = 0x38;
+
+    pub fn probe(i2c: &mut impl embedded_hal::i2c::I2c) -> BoardHint {
+        let mut buf = [0u8; 1];
+        match i2c.write_read(FT6X06_I2C_ADDR, &[0xA8], &mut buf) {
+            Ok(()) => {
+                #[cfg(feature = "defmt")]
+                defmt::info!(
+                    "I2C probe: FT6X06 found at 0x{:02x} (chip_id=0x{:02x}) — likely B08/NT35510",
+                    FT6X06_I2C_ADDR,
+                    buf[0]
+                );
+                BoardHint::NewRevisionLikely
+            }
+            Err(_) => {
+                #[cfg(feature = "defmt")]
+                defmt::info!(
+                    "I2C probe: no FT6X06 at 0x{:02x} — likely B07/OTM8009A or no touch panel",
+                    FT6X06_I2C_ADDR
+                );
+                BoardHint::LegacyRevisionLikely
+            }
+        }
+    }
+}
+
+/// Re-export for convenience.
+#[cfg(feature = "touch")]
+pub use board_probe::probe as probe_board_revision;
 
 /// Detect which LCD controller is connected via DSI probe.
 ///
@@ -280,6 +350,7 @@ pub fn detect_lcd_controller(
         BoardHint::LegacyRevisionLikely => mismatch_count >= 1 && consistent_mismatch,
         BoardHint::NewRevisionLikely => mismatch_count >= PROBE_RETRIES && consistent_mismatch,
         BoardHint::Unknown => mismatch_count >= 2 && consistent_mismatch,
+        BoardHint::Auto => mismatch_count >= 2 && consistent_mismatch,
     };
 
     if fallback_to_otm {
