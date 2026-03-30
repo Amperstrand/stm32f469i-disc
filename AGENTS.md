@@ -10,7 +10,10 @@ This BSP is actively developed and tested. An Embassy async version exists at `e
 
 | Commit | Notes |
 |--------|-------|
-| `d12977e` (main HEAD) | Comprehensive audit: bugs, docs, code quality, metadata |
+| `e9b96f8` (main HEAD) | HAL bump 05d999d, step logging, hw_diag chip ID fix, hw_diag device verified 24/24 |
+| `93bbf39` | HAL bump 05d999d, init_panel/init_display_full step logging |
+| `85c50eb` | BoardHint::Auto + probe_board_revision() I2C detection |
+| `d12977e` | Comprehensive audit: bugs, docs, code quality, metadata |
 | `5290ae7` | USB standalone test, RNG/ADC tests, host companion |
 | `da9fdb2` | LTDC init refactors, double-framebuffer merge, ForceNt35510 hint |
 
@@ -18,7 +21,7 @@ This BSP is actively developed and tested. An Embassy async version exists at `e
 
 All testing performed on STM32F469I-Discovery board (B08 revision, NT35510 panel).
 
-### Test Date: 2026-03-28 (comprehensive BSP test suite)
+### Test Date: 2026-03-30 (post-bugfix re-verification, stm32f4xx-hal 05d999d)
 
 Automated test suite using probe-rs + defmt/RTT. All tests use blocking `stm32f4xx-hal` 0.23.
 
@@ -32,12 +35,12 @@ Automated test suite using probe-rs + defmt/RTT. All tests use blocking `stm32f4
 | **Timers** | PASS | test_timers: 8/8 | TIM2 1ms, TIM3 50ms, PWM, cancel |
 | **DMA** | PASS | test_dma: 5/5 | 64B, 4096B, repeated mem-to-mem, DWT timing check |
 | **LCD (DSI/LTDC)** | PASS | test_lcd: 13/13 | SDRAM framebuf, LTDC, DSI, OTM8009A, RGB fills |
-| **Touch (FT6X06)** | PASS | test_touch: 5/5 | I2C init, chip ID, FT6X06 init, TD status, interactive |
+| **Touch (FT6X06)** | PASS | test_touch: 5/5 | I2C init, chip ID (0x11), FT6X06 init, TD status, interactive |
 | **RNG** | PASS | test_all: 3/3 | Non-zero, uniqueness, consecutive differ |
 | **ADC temp sensor** | PASS | test_all: 2/2 | Temperature and Vrefint |
 | **All-in-one** | PASS | test_all: 44/44 | Single flash, all suites via Peripherals::steal() |
-| **On-screen diag** | BUILT | hw_diag: builds clean | Not run on device; requires st-link + display |
-| **Soak test** | PASS | test_soak: builds clean | Continuous SDRAM stress; no SUMMARY line |
+| **On-screen diag** | PASS | hw_diag: 24/24 | SDRAM, display fills/gradient/text, touch, GPIO, LEDs, timers |
+| **Soak test** | BUILT | test_soak: builds clean | Continuous SDRAM stress; no SUMMARY line |
 | **USB CDC** | BUILT | test_usb_standalone builds clean | Requires st-flash + USB cable; not run |
 
 ### Test Date: 2026-03-25/26
