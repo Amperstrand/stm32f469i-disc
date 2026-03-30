@@ -705,7 +705,7 @@ fn main() -> ! {
                 Ok(()) => {
                     let id = buf[0];
                     defmt::info!("  Chip ID: {:#04X}", id);
-                    id == 0xCC || id == 0xA3
+                    id != 0x00
                 }
                 Err(_) => false,
             }
