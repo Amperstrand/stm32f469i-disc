@@ -6,7 +6,7 @@ Board support crate for the STM32F469I-DISCOVERY kit. An async version using Emb
 
 This BSP is actively developed and tested. An Embassy async version exists at `embassy-stm32f469i-disco` for async use cases. Upstream contributions to `stm32f4xx-hal` and related crates are planned once hardware testing is complete and all decisions are finalized.
 
-## Known-Good Pin
+## Known-Good Pins
 
 | Commit | Notes |
 |--------|-------|
@@ -28,7 +28,7 @@ Automated test suite using probe-rs + defmt/RTT. All tests use blocking `stm32f4
 | Subsystem | Status | Evidence | Tests |
 |-----------|--------|----------|-------|
 | **LEDs (GPIO)** | PASS | test_led: 16/16 | Individual, all-on/off, rapid toggle, by-color |
-| **SDRAM (fast)** | PASS | test_sdram: 14/14 | Init, checkerboard, inverse, address, random, boundary |
+| **SDRAM (fast)** | PASS | test_sdram: 10/10 | Checkerboard, address, random, walking-1s, March C, boundary, scattered, end-of-RAM, byte, halfword |
 | **SDRAM (exhaustive)** | PASS | test_sdram_full: 13/13 | Walking bits, March C, multi-pass random, byte/halfword |
 | **GPIO + Button** | PASS | test_gpio: 5/5 | PA0 input, multi-port output |
 | **UART (USART1)** | PASS | test_uart: 4/4 | Init, byte TX, formatted, multi-byte |
@@ -101,3 +101,37 @@ An async version using Embassy is available at `embassy-stm32f469i-disco`, which
 This repo is a fork of an upstream BSP. Changes intended for upstream stm32-rs/stm32f4xx-hal or related projects must go through human review first.
 
 See [Amperstrand/micronuts#19](https://github.com/Amperstrand/micronuts/issues/19) for a retrospective on how a confident misdiagnosis wasted upstream maintainer time.
+
+## Hardware Testing Checklist
+
+Tests that require the STM32F469I-DISCO board connected via ST-Link.
+
+### Quick re-verification (~2 min)
+```bash
+./run_tests.sh all
+```
+Runs: test_led, test_sdram, test_gpio, test_uart, test_timers, test_dma, test_lcd, test_touch, test_all, hw_diag (10 suites, ~137 tests).
+
+### Explicit-only tests (not in `run_tests.sh all`)
+
+| Test | Command | Duration | What it verifies |
+|------|---------|----------|-----------------|
+| `test_sdram_full` | `./run_tests.sh test_sdram_full` | ~3-5 min | Exhaustive 16MB SDRAM: walking bits, March C, multi-pass random |
+| `test_soak` | `./run_tests.sh test_soak` | Hours (kill manually) | Continuous rotating patterns + bit fade (DRAM retention) on full 16MB |
+| `test_usb_standalone` | `st-flash write target/.../test_usb_standalone.bin 0x08000000` | ~30s | USB CDC echo — requires st-flash + USB cable, NOT probe-rs (breaks USB timing) |
+
+### Post-change verification triggers
+- After HAL fork bump: `./run_tests.sh all` (full re-verify)
+- After lcd.rs changes: `./run_tests.sh test_lcd test_all hw_diag`
+- After touch.rs changes: `./run_tests.sh test_touch test_all hw_diag`
+- After sdram.rs changes: `./run_tests.sh test_sdram test_all hw_diag`
+- After any src/ change: `make check` first (software-only), then `./run_tests.sh all`
+
+### USB testing procedure
+1. Build: `cargo build --release --example test_usb_standalone --target thumbv7em-none-eabihf`
+2. Flash with st-flash (NOT probe-rs): `st-flash write target/thumbv7em-none-eabihf/release/examples/test_usb_standalone.bin 0x08000000`
+3. Connect USB cable from board's USB OTG FS port to host PC
+4. Run host companion: `python3 tests/host/test_usb_host.py --device /dev/ttyACM0 --duration 60`
+5. Or use: `scripts/usb_test.sh`
+
+**Why not probe-rs for USB?** probe-rs halts the CPU periodically for RTT reads, breaking USB timing. The USB test must run standalone with no debug probe interference.

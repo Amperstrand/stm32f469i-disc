@@ -161,7 +161,7 @@ You can also run the Python test standalone:
 
 ### Test Coverage Summary
 
-All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-28.
+All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-30.
 
 | Test | Peripherals | Tests | Device | Mode |
 |---|---|---|---|---|
@@ -175,16 +175,16 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | `test_lcd` | DSI, LTDC, OTM8009A | 13 | PASS | Probe |
 | `test_touch` | I2C1, FT6X06 | 5 | PASS | Probe |
 | `test_all` | All above + RNG + ADC | 44 | PASS | Probe |
-| `hw_diag` | All above (on-screen) | — | BUILT | — |
-| `test_soak` | SDRAM, GPIO | continuous | not in run_tests.sh | — |
+| `hw_diag` | All above (on-screen) | 24 | PASS | Probe |
+| `test_soak` | SDRAM | continuous | Explicit only | — |
 | `test_usb_standalone` | USB OTG FS | 5 | not run | Standalone |
 
-### Hardware Test Evidence (2026-03-28)
+### Hardware Test Evidence (2026-03-30)
 
 | Subsystem | Test | Result | Details |
 |---|---|---|---|
 | LEDs (4x GPIO) | test_led | 16/16 | Individual, all-on/off, rapid toggle, by-color |
-| SDRAM (16MB FMC) | test_sdram | 14/14 | Init, checkerboard, inverse, address, random, boundary |
+| SDRAM (16MB FMC) | test_sdram | 10/10 | Checkerboard, address, random, walking-1s, March C, boundary, scattered, end-of-RAM, byte, halfword |
 | SDRAM (exhaustive) | test_sdram_full | 13/13 | Walking bits, March C, multi-pass random, byte/halfword-level |
 | GPIO + Button | test_gpio | 5/5 | PA0 input, multi-port output |
 | UART (USART1) | test_uart | 4/4 | Init, byte TX, formatted, multi-byte (nb::block!) |
@@ -195,7 +195,7 @@ All probe-rs tests verified on STM32F469I-DISCO B08 (NT35510 panel) on 2026-03-2
 | RNG | test_all (rng) | 3/3 | Non-zero, uniqueness, consecutive differ |
 | ADC temp sensor | test_all (adc) | 2/2 | Temperature and Vrefint reads |
 | All-in-one | test_all | 44/44 | Single flash, Peripherals::steal() between suites |
-| On-screen diag | hw_diag | builds clean | On-screen diagnostics (not run on device) |
+| On-screen diag | hw_diag | 24/24 | SDRAM, display fills/gradient/text, touch, GPIO, LEDs, timers |
 | USB CDC | test_usb_standalone | — | Builds clean; requires st-flash + USB cable (not run) |
 
 ### How probe-rs output works

@@ -68,6 +68,7 @@ pub enum DisplayOrientation {
 }
 
 impl DisplayOrientation {
+    /// Width in pixels for this orientation.
     pub const fn width(self) -> u16 {
         match self {
             DisplayOrientation::Portrait => PANEL_WIDTH,
@@ -75,6 +76,7 @@ impl DisplayOrientation {
         }
     }
 
+    /// Height in pixels for this orientation.
     pub const fn height(self) -> u16 {
         match self {
             DisplayOrientation::Portrait => PANEL_HEIGHT,
@@ -82,6 +84,7 @@ impl DisplayOrientation {
         }
     }
 
+    /// Framebuffer size in pixels (`width * height`).
     pub const fn fb_size(self) -> usize {
         (self.width() as usize) * (self.height() as usize)
     }
@@ -159,11 +162,13 @@ pub const OTM8009A_DISPLAY_CONFIG_LANDSCAPE: DisplayConfig = DisplayConfig {
 /// Default display config (portrait, works for both panel types).
 pub const DISPLAY_CONFIG: DisplayConfig = NT35510_DISPLAY_CONFIG;
 
-/// Backwards-compatible aliases.
+/// Panel width in pixels (backwards-compatible alias).
 #[deprecated = "Use DisplayOrientation::Portrait and PANEL_WIDTH/PANEL_HEIGHT instead"]
 pub const WIDTH: u16 = PANEL_WIDTH;
+/// Panel height in pixels (backwards-compatible alias).
 #[deprecated = "Use DisplayOrientation::Portrait and PANEL_WIDTH/PANEL_HEIGHT instead"]
 pub const HEIGHT: u16 = PANEL_HEIGHT;
+/// Framebuffer size in pixels (backwards-compatible alias).
 #[deprecated = "Use DisplayOrientation::fb_size() instead"]
 pub const FB_SIZE: usize = DisplayOrientation::Portrait.fb_size();
 
@@ -171,7 +176,9 @@ pub const FB_SIZE: usize = DisplayOrientation::Portrait.fb_size();
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum LcdController {
+    /// NT35510 panel (B08 revision and later).
     Nt35510,
+    /// OTM8009A panel (B07 and earlier revisions).
     Otm8009A,
 }
 
@@ -248,6 +255,9 @@ mod board_probe {
 
     const FT6X06_I2C_ADDR: u8 = 0x38;
 
+    /// Probe I2C for the FT6X06 touch controller to determine board revision hint.
+    /// Returns [`BoardHint::NewRevisionLikely`] if FT6X06 responds, or
+    /// [`BoardHint::LegacyRevisionLikely`] if it does not.
     pub fn probe(i2c: &mut impl embedded_hal::i2c::I2c) -> BoardHint {
         let mut buf = [0u8; 1];
         match i2c.write_read(FT6X06_I2C_ADDR, &[0xA8], &mut buf) {
@@ -445,7 +455,10 @@ pub fn init_panel(
     dsi_host.force_rx_low_power(true);
 
     #[cfg(feature = "defmt")]
-    defmt::info!("[init_panel] step 2: probing LCD controller (hint={:?}", board_hint);
+    defmt::info!(
+        "[init_panel] step 2: probing LCD controller (hint={:?}",
+        board_hint
+    );
 
     let controller = detect_lcd_controller(dsi_host, delay, board_hint);
 
@@ -557,7 +570,8 @@ pub fn init_display_full(
     #[cfg(feature = "defmt")]
     defmt::info!(
         "[init_display_full] starting, hint={:?}, orientation={:?}",
-        board_hint, orientation
+        board_hint,
+        orientation
     );
 
     // Step 1: DSI host init
@@ -644,6 +658,11 @@ pub fn init_display_full(
     (display_ctrl, controller, orientation)
 }
 
+/// Create a full display pipeline with SDRAM framebuffer and LTDC layer.
+///
+/// Handles SDRAM init, LCD reset, display controller detection, panel init,
+/// and LTDC layer configuration in one call. Returns a ready-to-draw
+/// `LtdcFramebuffer` and any remaining SDRAM pins.
 #[allow(clippy::too_many_arguments)]
 #[cfg(feature = "framebuffer")]
 pub fn init_display_pipeline(

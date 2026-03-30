@@ -62,7 +62,10 @@ fn main() -> ! {
         let mut delay = cp.SYST.delay(&clocks);
 
         defmt::info!("=== SDRAM Soak Test ===");
-        defmt::info!("Full 16MB, rotating patterns + bit fade ({}ms delay)", BIT_FADE_DELAY_MS);
+        defmt::info!(
+            "Full 16MB, rotating patterns + bit fade ({}ms delay)",
+            BIT_FADE_DELAY_MS
+        );
         defmt::info!("Run indefinitely \u{2014} kill with Ctrl+C or timeout");
 
         let gpioc = p.GPIOC.split(&mut rcc);
@@ -105,7 +108,11 @@ fn main() -> ! {
                     for (i, word) in ram.iter().enumerate() {
                         if *word != pattern {
                             errors += 1;
-                            defmt::error!("checkerboard_0xAA error at cycle {} addr={:#010X}", cycle, base + i * 4);
+                            defmt::error!(
+                                "checkerboard_0xAA error at cycle {} addr={:#010X}",
+                                cycle,
+                                base + i * 4
+                            );
                             break;
                         }
                     }
@@ -119,7 +126,11 @@ fn main() -> ! {
                     for (i, word) in ram.iter().enumerate() {
                         if *word != pattern {
                             errors += 1;
-                            defmt::error!("checkerboard_0x55 error at cycle {} addr={:#010X}", cycle, base + i * 4);
+                            defmt::error!(
+                                "checkerboard_0x55 error at cycle {} addr={:#010X}",
+                                cycle,
+                                base + i * 4
+                            );
                             break;
                         }
                     }
@@ -133,7 +144,11 @@ fn main() -> ! {
                         let expected = (base + i * 4) as u32;
                         if *word != expected {
                             errors += 1;
-                            defmt::error!("addr_pattern error at cycle {} addr={:#010X}", cycle, base + i * 4);
+                            defmt::error!(
+                                "addr_pattern error at cycle {} addr={:#010X}",
+                                cycle,
+                                base + i * 4
+                            );
                             break;
                         }
                     }
@@ -163,7 +178,11 @@ fn main() -> ! {
                     let mut ok = true;
                     for (i, word) in ram.iter_mut().enumerate() {
                         if *word != 0 {
-                            defmt::error!("march_c up error at cycle {} addr={:#010X}", cycle, base + i * 4);
+                            defmt::error!(
+                                "march_c up error at cycle {} addr={:#010X}",
+                                cycle,
+                                base + i * 4
+                            );
                             ok = false;
                             break;
                         }

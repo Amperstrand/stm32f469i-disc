@@ -1,5 +1,5 @@
 #![no_std]
-#![allow(non_camel_case_types)]
+#![warn(missing_docs)]
 
 //! Board support crate for the STM32F469I-DISCO Discovery kit.
 //!

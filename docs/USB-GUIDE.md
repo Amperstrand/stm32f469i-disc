@@ -26,7 +26,7 @@ features = ["usb_fs"]
 ### Basic Initialization
 
 ```rust
-use stm32f469i_disc::{prelude::*, usb};
+use stm32f469i_disc::{hal::prelude::*, usb};
 
 let dp = pac::Peripherals::take().unwrap();
 let mut rcc = dp.RCC.freeze(rcc::Config::hse(8.MHz()).sysclk(48.MHz()).require_pll48clk());

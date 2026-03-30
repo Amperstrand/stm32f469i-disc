@@ -228,6 +228,10 @@ pub struct SdramRemainders {
     pub pc12: hal::gpio::PC12<hal::gpio::Input>,
     /// SDIO command - configure as alternate with pull-up
     pub pd2: hal::gpio::PD2<hal::gpio::Input>,
+    /// USART6 TX (QR scanner)
+    pub pg14: hal::gpio::PG14<hal::gpio::Input>,
+    /// USART6 RX (QR scanner)
+    pub pg9: hal::gpio::PG9<hal::gpio::Input>,
 }
 ```
 
@@ -341,7 +345,7 @@ let (sdio, touch_int) = sdio::init(dp.SDIO, remainders, &mut rcc);
 // Touch I2C is on PB8/PB9 (separate from SDRAM remainders)
 let gpiob = dp.GPIOB.split(&mut rcc);
 let i2c = touch::init_i2c(dp.I2C1, gpiob.pb8, gpiob.pb9, &mut rcc);
-let mut touch = touch::init_ft6x06(&i2c, touch_int);
+let _touch = touch::init_ft6x06(i2c);
 ```
 
 ## Pin Summary

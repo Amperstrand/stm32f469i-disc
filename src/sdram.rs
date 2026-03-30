@@ -168,9 +168,13 @@ pub struct SdramRemainders {
     pub pc1: hal::gpio::PC1<hal::gpio::Input>,
     /// SDIO data lines and clock
     pub pc8: hal::gpio::PC8<hal::gpio::Input>,
+    /// SDIO data line D0
     pub pc9: hal::gpio::PC9<hal::gpio::Input>,
+    /// SDIO data line D1
     pub pc10: hal::gpio::PC10<hal::gpio::Input>,
+    /// SDIO data line D2
     pub pc11: hal::gpio::PC11<hal::gpio::Input>,
+    /// SDIO data line D3
     pub pc12: hal::gpio::PC12<hal::gpio::Input>,
     /// SDIO command pin
     pub pd2: hal::gpio::PD2<hal::gpio::Input>,
