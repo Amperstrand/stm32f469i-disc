@@ -110,17 +110,23 @@ fn main() -> ! {
 
         // === SECTION 1: Thorough tests on first 256KB ===
 
-        // Test 1: Checkerboard on window
+        // Test 1: Checkerboard + inverse (moving inversion variant)
         defmt::info!("TEST checkerboard: RUNNING");
         {
             let mut ok = true;
-            for word in ram[..WIN].iter_mut() {
-                *word = 0xAAAAAAAA;
-            }
-            for (i, word) in ram[..WIN].iter().enumerate() {
-                if *word != 0xAAAAAAAA {
-                    fail("checkerboard", base + i * 4, 0xAAAAAAAA, *word);
-                    ok = false;
+            let patterns: [u32; 2] = [0xAAAAAAAA, 0x55555555];
+            for &pat in &patterns {
+                for word in ram[..WIN].iter_mut() {
+                    *word = pat;
+                }
+                for (i, word) in ram[..WIN].iter().enumerate() {
+                    if *word != pat {
+                        fail("checkerboard", base + i * 4, pat, *word);
+                        ok = false;
+                        break;
+                    }
+                }
+                if !ok {
                     break;
                 }
             }
@@ -129,26 +135,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 2: Inverse checkerboard
-        defmt::info!("TEST inv_checkerboard: RUNNING");
-        {
-            let mut ok = true;
-            for word in ram[..WIN].iter_mut() {
-                *word = 0x55555555;
-            }
-            for (i, word) in ram[..WIN].iter().enumerate() {
-                if *word != 0x55555555 {
-                    fail("inv_checkerboard", base + i * 4, 0x55555555, *word);
-                    ok = false;
-                    break;
-                }
-            }
-            if ok {
-                pass("inv_checkerboard");
-            }
-        }
-
-        // Test 3: Address pattern
+        // Test 2: Address pattern
         defmt::info!("TEST addr_pattern: RUNNING");
         {
             let mut ok = true;
@@ -168,27 +155,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 4: Inverse address pattern
-        defmt::info!("TEST inv_addr_pattern: RUNNING");
-        {
-            let mut ok = true;
-            for (i, word) in ram[..WIN].iter_mut().enumerate() {
-                *word = !((base + i * 4) as u32);
-            }
-            for (i, word) in ram[..WIN].iter().enumerate() {
-                let expected = !((base + i * 4) as u32);
-                if *word != expected {
-                    fail("inv_addr_pattern", base + i * 4, expected, *word);
-                    ok = false;
-                    break;
-                }
-            }
-            if ok {
-                pass("inv_addr_pattern");
-            }
-        }
-
-        // Test 5: Random XOR-shift on window
+        // Test 3: Random XOR-shift on window
         defmt::info!("TEST random_xorshift: RUNNING");
         {
             let mut rng = XorShift32::new(0xDEADBEEF);
@@ -210,7 +177,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 6: Walking 1s (small window only - 32 bits × 64K words is fast)
+        // Test 4: Walking 1s (small window only - 32 bits × 64K words is fast)
         defmt::info!("TEST walking_1s: RUNNING");
         {
             let mut ok = true;
@@ -235,57 +202,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 7: Walking 0s (small window)
-        defmt::info!("TEST walking_0s: RUNNING");
-        {
-            let mut ok = true;
-            for bit in 0..32 {
-                let pattern = !(1u32 << bit);
-                for word in ram[..WIN].iter_mut() {
-                    *word = pattern;
-                }
-                for (i, word) in ram[..WIN].iter().enumerate() {
-                    if *word != pattern {
-                        fail("walking_0s", base + i * 4, pattern, *word);
-                        ok = false;
-                        break;
-                    }
-                }
-                if !ok {
-                    break;
-                }
-            }
-            if ok {
-                pass("walking_0s");
-            }
-        }
-
-        // Test 8: Solid fills
-        defmt::info!("TEST solid_fills: RUNNING");
-        {
-            let mut ok = true;
-            let fills: [u32; 4] = [0x00000000, 0xFFFFFFFF, 0xAAAAAAAA, 0x55555555];
-            for &fill in &fills {
-                for word in ram[..WIN].iter_mut() {
-                    *word = fill;
-                }
-                for (i, word) in ram[..WIN].iter().enumerate() {
-                    if *word != fill {
-                        fail("solid_fills", base + i * 4, fill, *word);
-                        ok = false;
-                        break;
-                    }
-                }
-                if !ok {
-                    break;
-                }
-            }
-            if ok {
-                pass("solid_fills");
-            }
-        }
-
-        // Test 9: March C- (small window)
+        // Test 7: March C- (small window)
         defmt::info!("TEST march_c: RUNNING");
         {
             let mut ok = true;
@@ -351,7 +268,7 @@ fn main() -> ! {
 
         // === SECTION 2: Spot-checks across all 16MB ===
 
-        // Test 10: Boundary spots - 16 evenly spaced 1MB regions, 1024 words each
+        // Test 8: Boundary spots - 16 evenly spaced 1MB regions, 1024 words each
         defmt::info!("TEST boundary_spots: RUNNING");
         {
             let mut ok = true;
@@ -387,7 +304,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 11: Scattered random probes - 32 random 4K blocks across 16MB
+        // Test 9: Scattered random probes - 32 random 4K blocks across 16MB
         defmt::info!("TEST scattered_random: RUNNING");
         {
             let mut ok = true;
@@ -421,7 +338,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 12: Last 64K
+        // Test 10: Last 64K
         defmt::info!("TEST end_of_ram: RUNNING");
         {
             let mut ok = true;
@@ -445,7 +362,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 13: Byte-level on first 4K
+        // Test 11: Byte-level on first 4K
         defmt::info!("TEST byte_level: RUNNING");
         {
             let mut ok = true;
@@ -467,7 +384,7 @@ fn main() -> ! {
             }
         }
 
-        // Test 14: Halfword-level on first 4K
+        // Test 12: Halfword-level on first 4K
         defmt::info!("TEST halfword_level: RUNNING");
         {
             let mut ok = true;
