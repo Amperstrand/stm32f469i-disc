@@ -438,15 +438,21 @@ pub fn init_panel(
     delay: &mut impl DelayNs,
     board_hint: BoardHint,
 ) -> LcdController {
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_panel] step 1: setting DSI command mode (low-power RX)");
+
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
     dsi_host.force_rx_low_power(true);
+
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_panel] step 2: probing LCD controller (hint={:?}", board_hint);
 
     let controller = detect_lcd_controller(dsi_host, delay, board_hint);
 
     match controller {
         LcdController::Nt35510 => {
             #[cfg(feature = "defmt")]
-            defmt::info!("Initializing NT35510 (B08 revision)...");
+            defmt::info!("[init_panel] step 3: initializing NT35510 (B08 revision)...");
             let mut panel = Nt35510::new();
             panel
                 .init_rgb565(
@@ -456,10 +462,12 @@ pub fn init_panel(
                     nt35510::ColorMap::Rgb,
                 )
                 .unwrap();
+            #[cfg(feature = "defmt")]
+            defmt::info!("[init_panel] step 3: NT35510 init complete");
         }
         LcdController::Otm8009A => {
             #[cfg(feature = "defmt")]
-            defmt::info!("Initializing OTM8009A (B07 and earlier)...");
+            defmt::info!("[init_panel] step 3: initializing OTM8009A (B07 and earlier)...");
             let otm_config = Otm8009AConfig {
                 frame_rate: otm8009a::FrameRate::_60Hz,
                 mode: otm8009a::Mode::Portrait,
@@ -469,13 +477,18 @@ pub fn init_panel(
             };
             let mut otm = Otm8009A::new();
             otm.init(dsi_host, otm_config, delay).unwrap();
+            #[cfg(feature = "defmt")]
+            defmt::info!("[init_panel] step 3: OTM8009A init complete");
         }
     }
 
     dsi_host.force_rx_low_power(false);
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInHighSpeed);
     #[cfg(feature = "defmt")]
-    defmt::info!("Panel initialized, DSI in high-speed mode");
+    defmt::info!(
+        "[init_panel] step 4: DSI in high-speed mode, controller={:?}",
+        controller
+    );
     controller
 }
 
@@ -541,21 +554,33 @@ pub fn init_display_full(
     board_hint: BoardHint,
     orientation: DisplayOrientation,
 ) -> (DisplayController<u16>, LcdController, DisplayOrientation) {
+    #[cfg(feature = "defmt")]
+    defmt::info!(
+        "[init_display_full] starting, hint={:?}, orientation={:?}",
+        board_hint, orientation
+    );
+
     // Step 1: DSI host init
     let display_timing = LcdController::Nt35510.display_config(orientation);
     let mut dsi_host = init_dsi(dsi, rcc, display_timing);
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full] step 1: DSI host initialized");
 
     // Step 2: Critical delay for panel link
     delay.delay_ms(20);
 
     // Step 3: Detect LCD controller
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full] step 2: probing LCD controller...");
     let controller = detect_lcd_controller(&mut dsi_host, delay, board_hint);
     #[cfg(feature = "defmt")]
-    defmt::info!("Detected LCD controller: {:?}", controller);
+    defmt::info!("[init_display_full] step 2: detected {:?}", controller);
 
     // Step 4: Initialize LTDC BEFORE panel init
     // PLLSAI/R must be configured even in DSI mode — the LTDC pixel clock on
     // STM32F469 is always sourced from PLLSAI_R / PLLSAIDIVR (no mux to DSI).
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full] step 3: initializing LTDC (RGB565)...");
     let hse_freq = 8.MHz();
     let display_ctrl = DisplayController::<u16>::new(
         ltdc,
@@ -565,15 +590,19 @@ pub fn init_display_full(
         controller.display_config(orientation),
         Some(hse_freq),
     );
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full] step 3: LTDC initialized");
 
     // Step 5: Set command mode and init panel
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full] step 4: setting DSI command mode (low-power RX)");
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
     dsi_host.force_rx_low_power(true);
 
     match controller {
         LcdController::Nt35510 => {
             #[cfg(feature = "defmt")]
-            defmt::info!("Initializing NT35510 (B08 revision)...");
+            defmt::info!("[init_display_full] step 5: initializing NT35510 (B08 revision)...");
             let mut panel = Nt35510::new();
             panel
                 .init_rgb565(
@@ -583,10 +612,12 @@ pub fn init_display_full(
                     nt35510::ColorMap::Rgb,
                 )
                 .unwrap();
+            #[cfg(feature = "defmt")]
+            defmt::info!("[init_display_full] step 5: NT35510 init complete");
         }
         LcdController::Otm8009A => {
             #[cfg(feature = "defmt")]
-            defmt::info!("Initializing OTM8009A (B07 and earlier)...");
+            defmt::info!("[init_display_full] step 5: initializing OTM8009A (B07 and earlier)...");
             let otm_config = Otm8009AConfig {
                 frame_rate: otm8009a::FrameRate::_60Hz,
                 mode: otm8009a::Mode::Portrait,
@@ -596,6 +627,8 @@ pub fn init_display_full(
             };
             let mut otm = Otm8009A::new();
             otm.init(&mut dsi_host, otm_config, delay).unwrap();
+            #[cfg(feature = "defmt")]
+            defmt::info!("[init_display_full] step 5: OTM8009A init complete");
         }
     }
 
@@ -603,7 +636,10 @@ pub fn init_display_full(
     dsi_host.force_rx_low_power(false);
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInHighSpeed);
     #[cfg(feature = "defmt")]
-    defmt::info!("Display initialized successfully");
+    defmt::info!(
+        "[init_display_full] step 6: DSI in high-speed mode, controller={:?}",
+        controller
+    );
 
     (display_ctrl, controller, orientation)
 }

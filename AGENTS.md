@@ -77,7 +77,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 
 ## Key Dependencies
 
-- `stm32f4xx-hal` @ `b72958b` (Amperstrand fork — DSI host, PLLSAI fix)
+- `stm32f4xx-hal` @ `05d999d` (Amperstrand fork — DSI host, PLLSAI fix)
 - `otm8009a` @ `76dcda9` (Amperstrand fork — eh 1.0, edition 2024)
 - `nt35510` @ `7d588ef` (Amperstrand fork)
 - `ft6x06-rs` @ `fa4b41c` (Amperstrand fork of DogeDark/ft6x06-rs)
