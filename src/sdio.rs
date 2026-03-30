@@ -92,8 +92,9 @@ where
 /// for SDXC stabilization, then switches to `data_freq` for data transfer. Use this for
 /// production with [`ClockFreq::F1Mhz`] (or call [`init_card`]) or for testing other speeds.
 ///
-/// Note: `data_freq` is accepted but not yet applied — the HAL's `set_bus()` method is
-/// currently private. The card runs at 400 kHz until this is resolved.
+/// Note: `data_freq` parameter is currently unused. `ClockFreq` does not implement
+/// `PartialEq` for comparison, and `Sdio::set_bus()` has visibility issues.
+/// The card runs at 400 kHz until the HAL is fixed.
 ///
 /// # Arguments
 /// * `sdio` - Initialized SDIO host from [`init`]
@@ -133,12 +134,11 @@ where
     if let Ok(card) = sdio.card() {
         defmt::info!("sdio: card detected, blocks: {}", card.block_count());
     }
-
     // SDXC cards need time to transition from identification to data transfer state.
     delay.delay_ms(500);
 
-    // Switch to requested data-transfer frequency when HAL exposes set_bus (currently private).
-    // Data transfer remains at 400 kHz until then.
+    // Switch to requested data-transfer frequency when HAL fixes set_bus visibility
+    // and ClockFreq implements PartialEq. Data transfer remains at 400 kHz until then.
     let _ = data_freq;
 
     #[cfg(feature = "defmt")]
