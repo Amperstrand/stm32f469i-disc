@@ -78,6 +78,14 @@ Testing performed during the micronuts porting project (before migration to Emba
 | #7 | Architecture decisions and upstream roadmap |
 | #5 | ft6x06 dependency: evaluate DogeDark/ft6x06-rs replacement |
 
+## Cargo.toml defmt feature gate (FIXED)
+
+**Bug:** `"defmt"` was unconditionally present in `stm32f4xx-hal` features (line 54 of Cargo.toml), making the `defmt` feature gate on line 70 useless. Downstream consumers using `default-features = false` without the `defmt` feature still got defmt compiled into the HAL.
+
+**Fix:** Removed `"defmt"` from the unconditional features list. The `defmt` feature gate (`defmt = ["dep:defmt", "stm32f4xx-hal/defmt"]`) still adds it when the feature is enabled.
+
+**Impact:** Consumers using `default-features = false` without `defmt` now correctly build without defmt in the HAL. Consumers using the `defmt` feature are unaffected. See [issue #23](https://github.com/Amperstrand/stm32f469i-disc/issues/23).
+
 ## Key Dependencies
 
 - `stm32f4xx-hal` @ `05d999d` (Amperstrand fork — DSI host, PLLSAI fix)
