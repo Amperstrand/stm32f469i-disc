@@ -59,24 +59,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 
 ## Known Issues (all closed)
 
-| Issue | Status | Resolution |
-|-------|--------|------------|
-| DSI probe reads fail (#12) | CLOSED | Low impact — ForceNt35510 workaround, writes work fine |
-| SDIO microSD untested (#13) | CLOSED | Out of scope for wallet |
-| SDIO speed sweep (#6) | CLOSED | Out of scope for wallet |
-| FT6X06 phantom touches (#17) | CLOSED | 3px edge margin filter in firmware |
-| defmt log level (#15) | CLOSED | DEFMT_LOG set in .cargo/config.toml |
 
-## Open Issues (documentation/architecture only)
-
-| Issue | Description |
-|-------|-------------|
-| #16 | USART6 TX/RX (PG14/PG9) not documented in PIN-CONSUMPTION.md |
-| #14 | HIL test suite design not finalized |
-| #10 | Architecture & test matrix tracking |
-| #8 | probe-rs RTT race: defmt output lost on small binaries |
-| #7 | Architecture decisions and upstream roadmap |
-| #5 | ft6x06 dependency: evaluate DogeDark/ft6x06-rs replacement |
 
 ## Cargo.toml defmt feature gate (FIXED)
 
