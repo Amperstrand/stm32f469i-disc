@@ -38,12 +38,11 @@ jobs:
           for ex in test_led test_gpio test_uart test_timers test_dma test_sdram test_sdram_full test_lcd test_touch test_all test_soak hw_diag test_usb_standalone defmt_hse_test gpio_hal_blinky display_dsi_lcd display_touch fmc_sdram_test sdio_raw_test defmt_smoke; do
             cargo build --release --target thumbv7em-none-eabihf --example "$ex"
           done
-      - name: Build examples (no default features)
+      - name: Build examples (no default features, defmt-free only)
         if: matrix.features == '--no-default-features'
         run: |
-          for ex in test_led test_gpio test_uart test_timers test_dma test_sdram test_sdram_full test_lcd test_soak defmt_hse_test test_usb test_usb_standalone; do
-            cargo build --release --target thumbv7em-none-eabihf --example "$ex" --no-default-features
-          done
+          # Only test_usb_standalone works without defmt - other examples use defmt macros
+          cargo build --release --target thumbv7em-none-eabihf --example test_usb_standalone --no-default-features --features usb_fs
       - name: Build examples (all features)
         if: contains(matrix.features, 'framebuffer,touch')
         run: |
