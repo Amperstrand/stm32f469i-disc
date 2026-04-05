@@ -1,8 +1,13 @@
 stm32f469i-disc
-================
+===============
 Board support package for the STM32F469I-DISCOVERY kit.
 
-> An async version using Embassy is available at [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco). Plan is to upstream fixes and improvements to stm32f4xx-hal and related crates once testing is complete.
+> **Related BSP:** An async version using Embassy is available at [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco).
+>
+> - **Sync BSP (this repo):** Use for blocking HAL, `stm32f4xx-hal` compatibility, simpler code paths
+> - **Async BSP:** Use for Embassy async/await, event-driven applications, multitasking
+>
+> Plan is to upstream fixes and improvements to stm32f4xx-hal and related crates once testing is complete.
 
 Quick Start
 -----------

@@ -59,7 +59,7 @@ Testing performed during the micronuts porting project (before migration to Emba
 
 ## Known Issues (all closed)
 
-
+> **Cross-reference:** See [embassy-stm32f469i-disco/docs/known-issues.md](https://github.com/Amperstrand/embassy-stm32f469i-disco/blob/main/docs/known-issues.md) for consolidated hardware issues affecting both BSPs (DSI reads, FT6X06 phantom touches, probe-rs USB timing).
 
 ## Cargo.toml defmt feature gate (FIXED)
 
