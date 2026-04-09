@@ -47,6 +47,10 @@ version = "1.0"
 version = "0.4"
 optional = true
 
+[dependencies.embedded-graphics]
+version = "0.8.1"
+optional = true
+
 [dependencies.stm32f4xx-hal]
 git = "https://github.com/Amperstrand/stm32f4xx-hal"
 rev = "05d999d600d457f99aeb23ff93275d2c8f998908"
@@ -68,7 +72,7 @@ rand_core = "0.6"
 [features]
 default = ["defmt", "touch"]
 defmt = ["dep:defmt", "stm32f4xx-hal/defmt"]
-framebuffer = ["stm32f4xx-hal/framebuffer", "embedded-graphics-core"]
+framebuffer = ["stm32f4xx-hal/framebuffer", "embedded-graphics-core", "dep:embedded-graphics"]
 usb_fs = ["stm32f4xx-hal/usb_fs"]
 rng = ["stm32f4xx-hal/rng"]
 touch = ["dep:ft6x06-rs"]

@@ -44,10 +44,9 @@ use crate::hal::{
 use crate::sdram::{self, SdramRemainders};
 
 #[cfg(feature = "framebuffer")]
-use embedded_graphics_core::{
-    draw_target::DrawTarget,
-    pixelcolor::{Rgb565, RgbColor},
-};
+use embedded_graphics::{draw_target::DrawTarget, pixelcolor::Rgb888, prelude::*};
+#[cfg(feature = "framebuffer")]
+use embedded_graphics_core::pixelcolor::{Rgb565, RgbColor};
 use embedded_hal::delay::DelayNs;
 use nt35510::Nt35510;
 use otm8009a::{Otm8009A, Otm8009AConfig};
@@ -435,6 +434,45 @@ pub fn init_dsi(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHo
     dsi_host
 }
 
+pub fn init_dsi_argb8888(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHost {
+    let hse_freq = 8.MHz();
+    let ltdc_freq = 27_429.kHz();
+    let dsi_pll_config = unsafe { DsiPllConfig::manual(125, 2, 0, 4) };
+    let dsi_config = DsiConfig {
+        mode: DsiMode::Video {
+            mode: DsiVideoMode::Burst,
+        },
+        lane_count: LaneCount::DoubleLane,
+        channel: DsiChannel::Ch0,
+        hse_freq,
+        ltdc_freq,
+        interrupts: DsiInterrupts::None,
+        color_coding_host: ColorCoding::TwentyFourBits,
+        color_coding_wrapper: ColorCoding::TwentyFourBits,
+        lp_size: 64,
+        vlp_size: 64,
+    };
+
+    #[cfg(feature = "defmt")]
+    defmt::info!("Initializing DSI...");
+    let mut dsi_host = DsiHost::init(dsi_pll_config, display_config, dsi_config, dsi, rcc).unwrap();
+
+    dsi_host.configure_phy_timers(DsiPhyTimers {
+        dataline_hs2lp: 35,
+        dataline_lp2hs: 35,
+        clock_hs2lp: 35,
+        clock_lp2hs: 35,
+        dataline_max_read_time: 0,
+        stop_wait_time: 10,
+    });
+
+    dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
+    dsi_host.start();
+    dsi_host.enable_bus_turn_around();
+
+    dsi_host
+}
+
 /// Initialize DSI host and wait for panel link to settle (20ms).
 pub fn init_dsi_with_delay(dsi: DSI, rcc: &mut Rcc, delay: &mut impl DelayNs) -> DsiHost {
     let dsi_host = init_dsi(dsi, rcc, DISPLAY_CONFIG);
@@ -658,6 +696,121 @@ pub fn init_display_full(
     (display_ctrl, controller, orientation)
 }
 
+/// Full display initialization following the proven lcd-test sequence.
+///
+/// Handles the complete init sequence in the correct order:
+/// 1. DSI host init
+/// 2. 20ms delay for panel link settle
+/// 3. LCD controller detection
+/// 4. LTDC initialization (before panel init — this is critical)
+/// 5. Panel initialization
+/// 6. Switch DSI to high-speed mode
+///
+/// Returns `(DisplayController, LcdController, DisplayOrientation)`.
+pub fn init_display_full_argb8888(
+    dsi: DSI,
+    ltdc: LTDC,
+    dma2d: DMA2D,
+    rcc: &mut Rcc,
+    delay: &mut impl DelayNs,
+    board_hint: BoardHint,
+    orientation: DisplayOrientation,
+) -> (DisplayController<u32>, LcdController, DisplayOrientation) {
+    #[cfg(feature = "defmt")]
+    defmt::info!(
+        "[init_display_full_argb8888] starting, hint={:?}, orientation={:?}",
+        board_hint,
+        orientation
+    );
+
+    let display_timing = LcdController::Nt35510.display_config(orientation);
+    let mut dsi_host = init_dsi_argb8888(dsi, rcc, display_timing);
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full_argb8888] step 1: DSI host initialized");
+
+    delay.delay_ms(20);
+
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full_argb8888] step 2: probing LCD controller...");
+    let controller = detect_lcd_controller(&mut dsi_host, delay, board_hint);
+    #[cfg(feature = "defmt")]
+    defmt::info!(
+        "[init_display_full_argb8888] step 2: detected {:?}",
+        controller
+    );
+
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full_argb8888] step 3: initializing LTDC (ARGB8888)...");
+    let hse_freq = 8.MHz();
+    let display_ctrl = DisplayController::<u32>::new(
+        ltdc,
+        dma2d,
+        None,
+        PixelFormat::ARGB8888,
+        controller.display_config(orientation),
+        Some(hse_freq),
+    );
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full_argb8888] step 3: LTDC initialized");
+
+    #[cfg(feature = "defmt")]
+    defmt::info!("[init_display_full_argb8888] step 4: setting DSI command mode (low-power RX)");
+    dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
+    dsi_host.force_rx_low_power(true);
+
+    match controller {
+        LcdController::Nt35510 => {
+            #[cfg(feature = "defmt")]
+            defmt::info!(
+                "[init_display_full_argb8888] step 5: initializing NT35510 (B08 revision)..."
+            );
+            let mut panel = Nt35510::new();
+            panel
+                .init_with_config(
+                    &mut dsi_host,
+                    delay,
+                    nt35510::Nt35510Config {
+                        mode: nt35510::Mode::Portrait,
+                        color_map: nt35510::ColorMap::Rgb,
+                        color_format: nt35510::ColorFormat::Rgb888,
+                        cols: PANEL_WIDTH,
+                        rows: PANEL_HEIGHT,
+                    },
+                )
+                .unwrap();
+            #[cfg(feature = "defmt")]
+            defmt::info!("[init_display_full_argb8888] step 5: NT35510 init complete");
+        }
+        LcdController::Otm8009A => {
+            #[cfg(feature = "defmt")]
+            defmt::info!(
+                "[init_display_full_argb8888] step 5: initializing OTM8009A (B07 and earlier)..."
+            );
+            let otm_config = Otm8009AConfig {
+                frame_rate: otm8009a::FrameRate::_60Hz,
+                mode: otm8009a::Mode::Portrait,
+                color_map: otm8009a::ColorMap::Rgb,
+                cols: PANEL_WIDTH,
+                rows: PANEL_HEIGHT,
+            };
+            let mut otm = Otm8009A::new();
+            otm.init(&mut dsi_host, otm_config, delay).unwrap();
+            #[cfg(feature = "defmt")]
+            defmt::info!("[init_display_full_argb8888] step 5: OTM8009A init complete");
+        }
+    }
+
+    dsi_host.force_rx_low_power(false);
+    dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInHighSpeed);
+    #[cfg(feature = "defmt")]
+    defmt::info!(
+        "[init_display_full_argb8888] step 6: DSI in high-speed mode, controller={:?}",
+        controller
+    );
+
+    (display_ctrl, controller, orientation)
+}
+
 /// Create a full display pipeline with SDRAM framebuffer and LTDC layer.
 ///
 /// Handles SDRAM init, LCD reset, display controller detection, panel init,
@@ -873,5 +1026,90 @@ impl DoubleFramebuffer {
     /// further operations (e.g., periodic `swap_buffers()` calls).
     pub fn into_parts(self) -> (&'static mut [u16], DisplayController<u16>) {
         (self.front, self.display_ctrl)
+    }
+}
+
+#[cfg(feature = "framebuffer")]
+pub struct FramebufferView<'a> {
+    buffer: &'a mut [u32],
+    width: usize,
+    height: usize,
+}
+
+#[cfg(feature = "framebuffer")]
+impl<'a> FramebufferView<'a> {
+    pub fn new(buffer: &'a mut [u32], width: u32, height: u32) -> Self {
+        Self {
+            buffer,
+            width: width as usize,
+            height: height as usize,
+        }
+    }
+
+    fn encode(color: Rgb888) -> u32 {
+        0xFF00_0000 | ((color.r() as u32) << 16) | ((color.g() as u32) << 8) | (color.b() as u32)
+    }
+
+    pub fn clear(&mut self, color: Rgb888) {
+        let raw = Self::encode(color);
+        for pixel in self.buffer.iter_mut() {
+            *pixel = raw;
+        }
+    }
+}
+
+#[cfg(feature = "framebuffer")]
+impl<'a> DrawTarget for FramebufferView<'a> {
+    type Color = Rgb888;
+    type Error = core::convert::Infallible;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = embedded_graphics::Pixel<Self::Color>>,
+    {
+        for pixel in pixels {
+            let x = pixel.0.x as usize;
+            let y = pixel.0.y as usize;
+            if x < self.width && y < self.height {
+                self.buffer[y * self.width + x] = Self::encode(pixel.1);
+            }
+        }
+        Ok(())
+    }
+
+    fn fill_contiguous<I>(
+        &mut self,
+        area: &embedded_graphics::primitives::Rectangle,
+        color: I,
+    ) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Self::Color>,
+    {
+        let top = area.top_left.y.max(0) as usize;
+        let bottom = (area.top_left.y + area.size.height as i32).min(self.height as i32) as usize;
+        let left = area.top_left.x.max(0) as usize;
+        let right = (area.top_left.x + area.size.width as i32).min(self.width as i32) as usize;
+
+        let flat_color = color.into_iter().next().unwrap_or(Rgb888::BLACK);
+        let raw = Self::encode(flat_color);
+
+        for y in top..bottom {
+            for x in left..right {
+                self.buffer[y * self.width + x] = raw;
+            }
+        }
+        Ok(())
+    }
+
+    fn clear(&mut self, color: Self::Color) -> Result<(), Self::Error> {
+        self.clear(color);
+        Ok(())
+    }
+}
+
+#[cfg(feature = "framebuffer")]
+impl<'a> OriginDimensions for FramebufferView<'a> {
+    fn size(&self) -> Size {
+        Size::new(self.width as u32, self.height as u32)
     }
 }
