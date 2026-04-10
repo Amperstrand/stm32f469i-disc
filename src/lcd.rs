@@ -1000,6 +1000,8 @@ impl DoubleFramebuffer {
         {
             #[cfg(feature = "defmt")]
             defmt::warn!("swap failed: {:?}", e);
+            #[cfg(not(feature = "defmt"))]
+            let _ = e;
             return;
         }
         core::mem::swap(&mut self.front, &mut self.back);
