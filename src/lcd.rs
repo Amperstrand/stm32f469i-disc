@@ -313,7 +313,7 @@ pub fn detect_lcd_controller(
     for attempt in 1..=PROBE_RETRIES {
         #[cfg(not(feature = "defmt"))]
         let _ = attempt;
-        match nt35510.probe(dsi_host, delay) {
+        match nt35510.probe(dsi_host) {
             Ok(_) => {
                 #[cfg(feature = "defmt")]
                 defmt::info!("NT35510 (B08) detected on attempt {}", attempt);
