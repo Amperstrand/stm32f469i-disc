@@ -31,6 +31,10 @@ readme = "README.md"
 features = ["defmt", "touch", "framebuffer", "rng", "usb_fs"]
 targets = ["thumbv7em-none-eabihf"]
 
+[[example]]
+name = "display_hello_eg"
+required-features = ["framebuffer"]
+
 [dependencies]
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
