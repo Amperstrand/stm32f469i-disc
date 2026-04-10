@@ -994,7 +994,7 @@ impl DoubleFramebuffer {
     /// pending VBlank reload to complete before writing the new address,
     /// preventing the race condition that can interfere with USB DMA.
     pub fn swap(&mut self) {
-        if let Err(_) = self
+        if let Err(e) = self
             .display_ctrl
             .swap_buffers(Layer::L1, self.back.as_ptr() as u32)
         {

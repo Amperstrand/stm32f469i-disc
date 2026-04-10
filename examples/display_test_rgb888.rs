@@ -54,7 +54,7 @@ fn main() -> ! {
     );
     let orientation = lcd::DisplayOrientation::Portrait;
     let fb: &'static mut [u32] =
-        unsafe { core::slice::from_raw_parts_mut(sdram.mem as *mut u32, orientation.fb_size()) };
+        unsafe { core::slice::from_raw_parts_mut(sdram.mem, orientation.fb_size()) };
 
     defmt::info!("Initializing ARGB8888 display...");
     let (mut display_ctrl, _controller, _orientation) = lcd::init_display_full_argb8888(
