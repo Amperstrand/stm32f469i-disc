@@ -434,6 +434,10 @@ pub fn init_dsi(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHo
     dsi_host
 }
 
+/// Initialize the DSI host for ARGB8888 pixel format with F469-DISCO settings.
+///
+/// After calling this, wait 20ms before any panel communication.
+/// Prefer [`init_dsi_with_delay`] which includes the delay.
 pub fn init_dsi_argb8888(dsi: DSI, rcc: &mut Rcc, display_config: DisplayConfig) -> DsiHost {
     let hse_freq = 8.MHz();
     let ltdc_freq = 27_429.kHz();
@@ -990,7 +994,7 @@ impl DoubleFramebuffer {
     /// pending VBlank reload to complete before writing the new address,
     /// preventing the race condition that can interfere with USB DMA.
     pub fn swap(&mut self) {
-        if let Err(e) = self
+        if let Err(_) = self
             .display_ctrl
             .swap_buffers(Layer::L1, self.back.as_ptr() as u32)
         {
@@ -1030,6 +1034,9 @@ impl DoubleFramebuffer {
 }
 
 #[cfg(feature = "framebuffer")]
+/// A view into an ARGB8888 framebuffer that implements [`DrawTarget`].
+///
+/// Provides drawing operations on a `u32` slice buffer (ARGB8888 format).
 pub struct FramebufferView<'a> {
     buffer: &'a mut [u32],
     width: usize,
@@ -1038,6 +1045,9 @@ pub struct FramebufferView<'a> {
 
 #[cfg(feature = "framebuffer")]
 impl<'a> FramebufferView<'a> {
+    /// Create a new framebuffer view from a raw buffer slice.
+    ///
+    /// The buffer must contain at least `width * height` pixels.
     pub fn new(buffer: &'a mut [u32], width: u32, height: u32) -> Self {
         Self {
             buffer,
@@ -1050,6 +1060,7 @@ impl<'a> FramebufferView<'a> {
         0xFF00_0000 | ((color.r() as u32) << 16) | ((color.g() as u32) << 8) | (color.b() as u32)
     }
 
+    /// Fill the entire framebuffer with a solid color.
     pub fn clear(&mut self, color: Rgb888) {
         let raw = Self::encode(color);
         for pixel in self.buffer.iter_mut() {
