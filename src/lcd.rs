@@ -87,6 +87,22 @@ impl DisplayOrientation {
     pub const fn fb_size(self) -> usize {
         (self.width() as usize) * (self.height() as usize)
     }
+
+    /// Map to the corresponding NT35510 panel orientation.
+    pub const fn nt35510_mode(self) -> nt35510::Mode {
+        match self {
+            DisplayOrientation::Portrait => nt35510::Mode::Portrait,
+            DisplayOrientation::Landscape => nt35510::Mode::Landscape,
+        }
+    }
+
+    /// Map to the corresponding OTM8009A panel orientation.
+    pub const fn otm8009a_mode(self) -> otm8009a::Mode {
+        match self {
+            DisplayOrientation::Portrait => otm8009a::Mode::Portrait,
+            DisplayOrientation::Landscape => otm8009a::Mode::Landscape,
+        }
+    }
 }
 
 /// NT35510 display timing (B08 revision, portrait).
@@ -489,6 +505,7 @@ pub fn init_panel(
     dsi_host: &mut DsiHost,
     delay: &mut impl DelayNs,
     board_hint: BoardHint,
+    orientation: DisplayOrientation,
 ) -> LcdController {
     #[cfg(feature = "defmt")]
     defmt::info!("[init_panel] step 1: setting DSI command mode (low-power RX)");
@@ -513,7 +530,7 @@ pub fn init_panel(
                 .init_rgb565(
                     dsi_host,
                     delay,
-                    nt35510::Mode::Portrait,
+                    orientation.nt35510_mode(),
                     nt35510::ColorMap::Rgb,
                 )
                 .unwrap();
@@ -525,7 +542,7 @@ pub fn init_panel(
             defmt::info!("[init_panel] step 3: initializing OTM8009A (B07 and earlier)...");
             let otm_config = Otm8009AConfig {
                 frame_rate: otm8009a::FrameRate::_60Hz,
-                mode: otm8009a::Mode::Portrait,
+                mode: orientation.otm8009a_mode(),
                 color_map: otm8009a::ColorMap::Rgb,
                 cols: PANEL_WIDTH,
                 rows: PANEL_HEIGHT,
@@ -664,7 +681,7 @@ pub fn init_display_full(
                 .init_rgb565(
                     &mut dsi_host,
                     delay,
-                    nt35510::Mode::Portrait,
+                    orientation.nt35510_mode(),
                     nt35510::ColorMap::Rgb,
                 )
                 .unwrap();
@@ -676,7 +693,7 @@ pub fn init_display_full(
             defmt::info!("[init_display_full] step 5: initializing OTM8009A (B07 and earlier)...");
             let otm_config = Otm8009AConfig {
                 frame_rate: otm8009a::FrameRate::_60Hz,
-                mode: otm8009a::Mode::Portrait,
+                mode: orientation.otm8009a_mode(),
                 color_map: otm8009a::ColorMap::Rgb,
                 cols: PANEL_WIDTH,
                 rows: PANEL_HEIGHT,
@@ -774,7 +791,7 @@ pub fn init_display_full_argb8888(
                     &mut dsi_host,
                     delay,
                     nt35510::Nt35510Config {
-                        mode: nt35510::Mode::Portrait,
+                        mode: orientation.nt35510_mode(),
                         color_map: nt35510::ColorMap::Rgb,
                         color_format: nt35510::ColorFormat::Rgb888,
                         cols: PANEL_WIDTH,
@@ -792,7 +809,7 @@ pub fn init_display_full_argb8888(
             );
             let otm_config = Otm8009AConfig {
                 frame_rate: otm8009a::FrameRate::_60Hz,
-                mode: otm8009a::Mode::Portrait,
+                mode: orientation.otm8009a_mode(),
                 color_map: otm8009a::ColorMap::Rgb,
                 cols: PANEL_WIDTH,
                 rows: PANEL_HEIGHT,
