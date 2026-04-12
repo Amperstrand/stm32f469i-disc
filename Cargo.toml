@@ -74,7 +74,7 @@ usbd-serial = "0.2.0"
 rand_core = "0.6"
 
 [features]
-default = ["defmt", "touch"]
+default = ["touch"]
 defmt = ["dep:defmt", "stm32f4xx-hal/defmt"]
 framebuffer = ["stm32f4xx-hal/framebuffer", "embedded-graphics-core", "dep:embedded-graphics"]
 usb_fs = ["stm32f4xx-hal/usb_fs"]
