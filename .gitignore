@@ -3,4 +3,9 @@ Cargo.lock
 
 # Local run logs and captured output (do not commit)
 logs/
+test-results/
+soak_test.sh
+
+# Stale nested clone (not a submodule)
+embassy-stm32f469i-disco/
 

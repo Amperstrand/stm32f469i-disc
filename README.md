@@ -1,5 +1,9 @@
+[![crates.io](https://img.shields.io/crates/v/stm32f469i-disc.svg)](https://crates.io/crates/stm32f469i-disc)
+[![License](https://img.shields.io/badge/license-0BSD-blue.svg)](LICENSE-0BSD.txt)
+
 stm32f469i-disc
 ===============
+
 Board support package for the STM32F469I-DISCOVERY kit.
 
 > **Related BSP:** An async version using Embassy is available at [embassy-stm32f469i-disco](https://github.com/Amperstrand/embassy-stm32f469i-disco).
@@ -8,23 +12,6 @@ Board support package for the STM32F469I-DISCOVERY kit.
 > - **Async BSP:** Use for Embassy async/await, event-driven applications, multitasking
 >
 > Plan is to upstream fixes and improvements to stm32f4xx-hal and related crates once testing is complete.
-
-Quick Start
------------
-
-```toml
-[dependencies.stm32f469i-disc]
-git = "https://github.com/Amperstrand/stm32f469i-disc"
-features = ["defmt"]
-```
-
-The default build target is `thumbv7em-none-eabihf` (see `.cargo/config.toml`).
-
-```bash
-cargo build --example gpio_hal_blinky
-cargo run --example gpio_hal_blinky   # if probe-rs and board are available locally
-```
-
 
 Module Overview
 ---------------
@@ -36,14 +23,29 @@ Module Overview
 - `button` - User button
 - `usb` - USB OTG FS
 
-Documentation Links
--------------------
-- [USB Guide](docs/USB-GUIDE.md) - USB OTG FS setup and CDC-ACM
-- [Pin Consumption](docs/PIN-CONSUMPTION.md) - Which pins SDRAM consumes
-- [Display Pixel Formats](docs/DISPLAY-PIXEL-FORMATS.md) - RGB565 vs ARGB8888 tradeoffs
-- [SDIO clock speeds](docs/SDIO-CLOCK-SPEEDS.md) - Specs, tradeoffs, and test results table
-- [Hardware test plan](docs/HARDWARE-TEST-PLAN.md) - Run all examples on the board and record results
+Hardware Architecture
+---------------------
 
+```mermaid
+flowchart TD
+    subgraph "STM32F469NIHx MCU"
+        USB_OTG["USB OTG FS<br/>PA11/PA12"]
+        USART6["USART6 UART<br/>PG14(TX)/PG9(RX)"]
+        DSI["DSI Host<br/>LTDC + SDRAM"]
+        I2C1["I2C1<br/>PB8(SCL)/PB9(SDA)"]
+        FMC["FMC<br/>16MB SDRAM"]
+    end
+    subgraph "Peripherals"
+        GM65["GM65 Scanner<br/>115200 baud"]
+        DISPLAY["NT35510 Panel<br/>480x800 DSI"]
+        TOUCH["FT6X06 Touch<br/>I2C"]
+    end
+    USB_OTG -->|USB CDC| HOST["USB Host PC"]
+    USART6 ---|"UART"| GM65
+    DSI --> DISPLAY
+    FMC -->|Framebuffer| DSI
+    I2C1 --> TOUCH
+```
 
 Board Hardware
 --------------
@@ -78,6 +80,48 @@ Peripheral Support
 - [ ] SAI Audio DAC + headphone jack
 - [ ] DFSDM MEMS microphones (x3)
 - [ ] QSPI NOR Flash
+
+Clock Configuration
+-------------------
+
+```mermaid
+flowchart LR
+    HSE["HSE 8MHz crystal"] --> PLL1["PLL1<br/>x360 /8 = 180MHz SYSCLK"]
+    HSE --> PLLSAI["PLLSAI<br/>x384 /8 = 192MHz VCO"]
+    PLL1 --> APB["APB1/APB2<br/>45MHz"]
+    PLLSAI --> USB48["PLLSAI_P<br/>/8 = 48MHz USB"]
+    PLLSAI --> LTDC["PLLSAI_R<br/>/7 = 54.86MHz LTDC"]
+    USB48 --> USB["USB OTG FS"]
+    LTDC --> DSI["DSI Host"]
+```
+
+The STM32F469NIHx runs at 180 MHz SYSCLK from an 8 MHz HSE crystal through PLL1.
+PLLSAI provides both the 48 MHz USB clock and the 54.86 MHz LTDC pixel clock.
+APB1 and APB2 peripherals run at 45 MHz.
+
+Quick Start
+-----------
+
+```toml
+[dependencies.stm32f469i-disc]
+git = "https://github.com/Amperstrand/stm32f469i-disc"
+features = ["defmt"]
+```
+
+The default build target is `thumbv7em-none-eabihf` (see `.cargo/config.toml`).
+
+```bash
+cargo build --example gpio_hal_blinky
+cargo run --example gpio_hal_blinky   # if probe-rs and board are available locally
+```
+
+Documentation Links
+-------------------
+- [USB Guide](docs/USB-GUIDE.md) - USB OTG FS setup and CDC-ACM
+- [Pin Consumption](docs/PIN-CONSUMPTION.md) - Which pins SDRAM consumes
+- [Display Pixel Formats](docs/DISPLAY-PIXEL-FORMATS.md) - RGB565 vs ARGB8888 tradeoffs
+- [SDIO clock speeds](docs/SDIO-CLOCK-SPEEDS.md) - Specs, tradeoffs, and test results table
+- [Hardware test plan](docs/HARDWARE-TEST-PLAN.md) - Run all examples on the board and record results
 
 Examples
 --------
