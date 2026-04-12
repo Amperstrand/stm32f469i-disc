@@ -554,7 +554,7 @@ pub fn init_display_full_argb8888(
     );
 
     let display_timing = LcdController::Nt35510.display_config(orientation);
-    let mut dsi_host = init_dsi(dsi, rcc, display_timing, ColorCoding::TwentyFourBits);
+    let mut dsi_host = init_dsi(dsi, rcc, display_timing, ColorCoding::SixteenBitsConfig1);
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 1: DSI host initialized");
 
