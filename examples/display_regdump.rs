@@ -1,10 +1,10 @@
 //! ARGB8888 register dump diagnostic firmware for STM32F469I-DISCO.
 //!
 //! Runs `init_display_full_argb8888()` then reads and displays key hardware
-//! register values on-screen. Also draws the pixel ruler below the register
-//! dump so the shift can be measured simultaneously.
+//! register values on-screen AND via defmt RTT (probe-rs capture).
 //!
-//! NO RTT, NO defmt, NO panic_probe — output is on the display only.
+//! RTT output allows machine-readable register capture without reading the screen.
+//! Flash with st-flash for display output, or use probe-rs run for RTT output.
 //!
 //! Flash with:
 //!   arm-none-eabi-objcopy -O binary \
@@ -13,12 +13,16 @@
 //!   pkill -9 probe-rs; sleep 3
 //!   sudo st-flash --connect-under-reset write /tmp/display_regdump.bin 0x08000000
 //!   sudo st-flash --connect-under-reset reset
+//!
+//! RTT capture (requires probe-rs, SWD connection):
+//!   cargo run --example display_regdump --features framebuffer
 
 #![no_main]
 #![no_std]
 
 use cortex_m_rt::entry;
-use panic_halt as _;
+use defmt_rtt as _;
+use panic_probe as _;
 
 use stm32f469i_disc as board;
 
@@ -150,37 +154,56 @@ fn main() -> ! {
         )
     };
 
-    // Extract fields
+    // Read PLLM from PLLCFGR (same pattern as stm32f4xx-hal/src/ltdc.rs:257)
+    let pllm: u32 = unsafe {
+        let rcc_p = &*board::hal::pac::RCC::ptr();
+        rcc_p.pllcfgr().read().pllm().bits() as u32
+    };
+
     let plln = (pllsaicfgr_val >> 6) & 0x1FF;
     let pllr = (pllsaicfgr_val >> 28) & 0x7;
     let pllsaidivr_raw = (dckcfgr_val >> 16) & 0x3;
-    // PLLSAIDIVR encoding: 0=/2, 1=/4, 2=/8, 3=/16
     let divr_actual: u32 = 1u32 << (pllsaidivr_raw + 1);
     let colmux = (wcfgr_val >> 1) & 0x7;
     let colc = lcolcr_val & 0xF;
 
-    // Computed values
-    // pixel_clock_khz = (HSE_kHz * PLLN) / (PLLM * PLLR * DIVR)
-    // HSE=8MHz, PLLM=8 (from rcc::Config::hse(8.MHz()))
-    // => (8000 * plln) / (8 * pllr * divr_actual)
-    let pixel_clock_khz = if pllr > 0 && divr_actual > 0 {
-        (8_000u32 * plln) / (8 * pllr * divr_actual)
+    let pixel_clock_khz = if pllm > 0 && pllr > 0 && divr_actual > 0 {
+        (8_000u32 * plln) / (pllm * pllr * divr_actual)
     } else {
         0
     };
-    // HFP = HLINE - HSA - HBP - HACT_bytes  (ARGB8888: 480px * 4 bytes/pix / 3 lanes ≈ 720 byte-clocks? No: HACT_bytes = pixels * bytes_per_pixel. For 24bpp COLMUX=5, HACT_bytes=720)
-    let hact_24bpp: u32 = 480 * 3; // 24bpp DSI: HACT = PANEL_WIDTH * 3 byte-clocks = 1440
+    let hact_24bpp: u32 = 480 * 3;
     let der_hfp = if hline > hsa + hbp + hact_24bpp {
         hline - hsa - hbp - hact_24bpp
     } else {
-        0 // would be negative — indicates problem
+        0
     };
-    // Also compute with the common 720 assumption (480*4/2 = wrong; just show both)
     let der_hfp_720 = if hline > hsa + hbp + 720 {
         hline - hsa - hbp - 720
     } else {
         0
     };
+
+    defmt::info!("=== ARGB8888 REGISTER DUMP ===");
+    defmt::info!(
+        "PLLSAICFGR: {:#010x}  PLLN={} PLLR={} PLLM={}",
+        pllsaicfgr_val,
+        plln,
+        pllr,
+        pllm
+    );
+    defmt::info!(
+        "DCKCFGR:    {:#010x}  PLLSAIDIVR_raw={} DIVR={}",
+        dckcfgr_val,
+        pllsaidivr_raw,
+        divr_actual
+    );
+    defmt::info!("pixel_clock_khz: {}  (expected 27429)", pixel_clock_khz);
+    defmt::info!("HLINE: {}  HSA: {}  HBP: {}", hline, hsa, hbp);
+    defmt::info!("WCFGR: {:#010x}  COLMUX={}", wcfgr_val, colmux);
+    defmt::info!("LCOLCR: {:#010x}  COLC={}", lcolcr_val, colc);
+    defmt::info!("VPSIZE: {}", vpsize);
+    defmt::info!("HFP(24bpp,1440): {}  HFP(720): {}", der_hfp, der_hfp_720);
 
     // ── Render to framebuffer ────────────────────────────────────────────────
     let buffer: &'static mut [u32] = sdram.subslice_mut(0, orientation.fb_size());
