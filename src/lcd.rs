@@ -367,12 +367,18 @@ pub fn detect_lcd_controller(
 /// Initialize the DSI host with F469-DISCO settings.
 ///
 /// After calling this, wait 20ms before any panel communication.
+///
+/// `lp_size` / `vlp_size` control the LP largest packet sizes in the LPMCR
+/// register. Embassy uses 16 / 0 for ARGB8888; the RGB565 path works with
+/// the legacy 64 / 64 values.
 pub fn init_dsi(
     dsi: DSI,
     rcc: &mut Rcc,
     display_config: DisplayConfig,
     color_coding: ColorCoding,
     ltdc_freq: Hertz,
+    lp_size: u8,
+    vlp_size: u8,
 ) -> DsiHost {
     let hse_freq = 8.MHz();
     // VCO = (8MHz HSE / 2 IDF) * 2 * 125 = 1000MHz
@@ -392,8 +398,8 @@ pub fn init_dsi(
         interrupts: DsiInterrupts::None,
         color_coding_host: color_coding,
         color_coding_wrapper: color_coding,
-        lp_size: 64,
-        vlp_size: 64,
+        lp_size,
+        vlp_size,
     };
 
     #[cfg(feature = "defmt")]
@@ -453,6 +459,8 @@ pub fn init_display_full(
         display_timing,
         ColorCoding::SixteenBitsConfig1,
         27_429.kHz(),
+        64,
+        64,
     );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 1: DSI host initialized");
@@ -576,6 +584,8 @@ pub fn init_display_full_argb8888(
         display_timing,
         ColorCoding::TwentyFourBits,
         27_429.kHz(),
+        16,
+        0,
     );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 1: DSI host initialized");
@@ -604,6 +614,7 @@ pub fn init_display_full_argb8888(
         Some(hse_freq),
     );
     dsi_host.start();
+    delay.delay_ms(120);
 
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 4: setting DSI command mode (low-power RX)");
