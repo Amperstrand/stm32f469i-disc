@@ -603,6 +603,26 @@ pub fn init_display_full_argb8888(
         controller.display_config(orientation),
         Some(hse_freq),
     );
+
+    // PLLSAI pixel clock fix: float search produces PLLN=192 (13714 kHz) instead
+    // of the required PLLN=384 (27429 kHz). Override here to match embassy reference.
+    // Verified by hardware register dump (T1): PLLN=192 with PLLM=8, PLLR=7, DIVR=2.
+    // ref: embassy-stm32f469i-disco display.rs LTDC_PIXEL_CLK_KHZ=27429 (PLLN=384/PLLR=7/DIVR=2)
+    // Math: pixel_clock = 8MHz * 384 / (8 * 7 * 2) = 27,429 kHz
+    // SAFETY: PLLSAI is not in use by other peripherals at this point; display is not active.
+    {
+        let rcc = unsafe { &*crate::hal::pac::RCC::ptr() };
+        // Stop PLLSAI before reconfiguring (RM0386 section 6.3.26)
+        rcc.cr().modify(|_, w| w.pllsaion().off());
+        while rcc.cr().read().pllsairdy().is_ready() {}
+        // Override PLLN to 384 using .modify() to preserve PLLSAI P (USB 48MHz) and Q fields
+        rcc.pllsaicfgr()
+            .modify(|_, w| unsafe { w.pllsain().bits(384) });
+        // Restart PLLSAI and wait for lock
+        rcc.cr().modify(|_, w| w.pllsaion().on());
+        while rcc.cr().read().pllsairdy().is_not_ready() {}
+    }
+
     dsi_host.start();
 
     #[cfg(feature = "defmt")]
