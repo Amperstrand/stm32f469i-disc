@@ -32,6 +32,10 @@ features = ["defmt", "touch", "framebuffer", "rng", "usb_fs"]
 targets = ["thumbv7em-none-eabihf"]
 
 [[example]]
+name = "display_regdump"
+required-features = ["framebuffer"]
+
+[[example]]
 name = "display_hello_eg"
 required-features = ["framebuffer"]
 
