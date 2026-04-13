@@ -410,8 +410,9 @@ pub fn init_dsi(
     });
 
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
-    // CR.EN only — WCR.DSIEN deferred until after LTDC init (ST BSP ordering).
-    dsi_host.start_host();
+    // CR.EN deferred until after LTDC init — matches embassy pattern where
+    // DSI host gets exactly one 0→1 transition after LTDC is running.
+    // ForceNt35510 skips DSI reads, so no CR.EN needed for detection.
     dsi_host.enable_bus_turn_around();
 
     dsi_host
@@ -590,10 +591,9 @@ pub fn init_display_full_argb8888(
         controller
     );
 
+    // Stop DSI host before LTDC init — matches init_display_full() (RGB565) path.
     dsi_host.stop();
 
-    #[cfg(feature = "defmt")]
-    defmt::info!("[init_display_full_argb8888] step 3: initializing LTDC (ARGB8888)...");
     let hse_freq = 8.MHz();
     let display_ctrl = DisplayController::<u32>::new(
         ltdc,
@@ -603,9 +603,6 @@ pub fn init_display_full_argb8888(
         controller.display_config(orientation),
         Some(hse_freq),
     );
-    #[cfg(feature = "defmt")]
-    defmt::info!("[init_display_full_argb8888] step 3: LTDC initialized");
-
     dsi_host.start();
 
     #[cfg(feature = "defmt")]
