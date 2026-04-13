@@ -73,6 +73,22 @@ fn draw_static_scene(fb: &mut FramebufferView<'_>) {
     Text::new(LABEL, Point::new(centered_x(LABEL), 52), text_style)
         .draw(fb)
         .ok();
+
+    let ruler_y = 170;
+    let ruler_style = PrimitiveStyle::with_stroke(Rgb888::BLACK, 1);
+    for x in (0..WIDTH as i32).step_by(10) {
+        Line::new(Point::new(x, ruler_y), Point::new(x, ruler_y + 28))
+            .into_styled(ruler_style)
+            .draw(fb)
+            .ok();
+    }
+    Line::new(
+        Point::new(WIDTH as i32 - 1, ruler_y),
+        Point::new(WIDTH as i32 - 1, ruler_y + 28),
+    )
+    .into_styled(PrimitiveStyle::with_stroke(Rgb888::YELLOW, 2))
+    .draw(fb)
+    .ok();
 }
 
 fn draw_crosshair(fb: &mut FramebufferView<'_>, x: i32, y: i32, color: Rgb888) {
