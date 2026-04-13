@@ -64,8 +64,7 @@ version = "0.8.1"
 optional = true
 
 [dependencies.stm32f4xx-hal]
-git = "https://github.com/Amperstrand/stm32f4xx-hal"
-rev = "05d999d600d457f99aeb23ff93275d2c8f998908"
+path = "../stm32f4xx-hal"
 default-features = false
 features = ["stm32f469", "stm32-fmc", "dsihost", "sdio-host", "usb_fs"]
 

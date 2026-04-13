@@ -466,6 +466,10 @@ pub fn init_display_full(
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 2: detected {:?}", controller);
 
+    // Stop DSI host after panel detection. ST BSP stops before reconfiguring
+    // for video mode: HAL_DSI_Stop() → config → HAL_LTDC_Init() → HAL_DSI_Start().
+    dsi_host.stop();
+
     // Step 4: Initialize LTDC BEFORE panel init
     // PLLSAI/R must be configured even in DSI mode — the LTDC pixel clock on
     // STM32F469 is always sourced from PLLSAI_R / PLLSAIDIVR (no mux to DSI).
@@ -483,9 +487,8 @@ pub fn init_display_full(
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 3: LTDC initialized");
 
-    // Enable DSI wrapper AFTER LTDC — ST BSP requires this ordering to
-    // avoid synchronization issues between LTDC pixel output and DSI host.
-    dsi_host.start_wrapper();
+    // Start DSI (host + wrapper) AFTER LTDC — ST BSP ordering.
+    dsi_host.start();
 
     // Step 5: Set command mode and init panel
     #[cfg(feature = "defmt")]
@@ -587,6 +590,8 @@ pub fn init_display_full_argb8888(
         controller
     );
 
+    dsi_host.stop();
+
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 3: initializing LTDC (ARGB8888)...");
     let hse_freq = 8.MHz();
@@ -601,7 +606,7 @@ pub fn init_display_full_argb8888(
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 3: LTDC initialized");
 
-    dsi_host.start_wrapper();
+    dsi_host.start();
 
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 4: setting DSI command mode (low-power RX)");
