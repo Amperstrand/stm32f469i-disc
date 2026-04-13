@@ -32,6 +32,7 @@ use crate::hal::{
     pac::{DMA2D, DSI, LTDC},
     prelude::*,
     rcc::Rcc,
+    time::Hertz,
 };
 #[cfg(feature = "framebuffer")]
 use embedded_graphics::{draw_target::DrawTarget, pixelcolor::Rgb888, prelude::*};
@@ -371,9 +372,9 @@ pub fn init_dsi(
     rcc: &mut Rcc,
     display_config: DisplayConfig,
     color_coding: ColorCoding,
+    ltdc_freq: Hertz,
 ) -> DsiHost {
     let hse_freq = 8.MHz();
-    let ltdc_freq = 27_429.kHz();
     // VCO = (8MHz HSE / 2 IDF) * 2 * 125 = 1000MHz
     // 1000MHz VCO / (2 * 1 ODF * 8) = 62.5MHz
     // SAFETY: PLL parameters (NDIV=125, IDF=2, ODF=0, REG=4) produce a DSI bit clock
@@ -409,7 +410,8 @@ pub fn init_dsi(
     });
 
     dsi_host.set_command_mode_transmission_kind(DsiCmdModeTransmissionKind::AllInLowPower);
-    dsi_host.start();
+    // CR.EN only — WCR.DSIEN deferred until after LTDC init (ST BSP ordering).
+    dsi_host.start_host();
     dsi_host.enable_bus_turn_around();
 
     dsi_host
@@ -444,7 +446,13 @@ pub fn init_display_full(
 
     // Step 1: DSI host init
     let display_timing = LcdController::Nt35510.display_config(orientation);
-    let mut dsi_host = init_dsi(dsi, rcc, display_timing, ColorCoding::SixteenBitsConfig1);
+    let mut dsi_host = init_dsi(
+        dsi,
+        rcc,
+        display_timing,
+        ColorCoding::SixteenBitsConfig1,
+        27_429.kHz(),
+    );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 1: DSI host initialized");
 
@@ -474,6 +482,10 @@ pub fn init_display_full(
     );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 3: LTDC initialized");
+
+    // Enable DSI wrapper AFTER LTDC — ST BSP requires this ordering to
+    // avoid synchronization issues between LTDC pixel output and DSI host.
+    dsi_host.start_wrapper();
 
     // Step 5: Set command mode and init panel
     #[cfg(feature = "defmt")]
@@ -554,7 +566,13 @@ pub fn init_display_full_argb8888(
     );
 
     let display_timing = LcdController::Nt35510.display_config(orientation);
-    let mut dsi_host = init_dsi(dsi, rcc, display_timing, ColorCoding::SixteenBitsConfig1);
+    let mut dsi_host = init_dsi(
+        dsi,
+        rcc,
+        display_timing,
+        ColorCoding::TwentyFourBits,
+        27_429.kHz(),
+    );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 1: DSI host initialized");
 
@@ -582,6 +600,8 @@ pub fn init_display_full_argb8888(
     );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 3: LTDC initialized");
+
+    dsi_host.start_wrapper();
 
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full_argb8888] step 4: setting DSI command mode (low-power RX)");
