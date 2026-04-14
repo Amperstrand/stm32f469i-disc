@@ -577,7 +577,17 @@ pub fn init_display_full_argb8888(
         orientation
     );
 
-    let display_timing = LcdController::Nt35510.display_config(orientation);
+    // Use PORTRAIT_DSI timing with correct NT35510 vertical blanking values.
+    // STANDARD_PORTRAIT (V_SYNC=1/V_BP=15/V_FP=16) under-blanks the panel in DSI
+    // video mode, causing top rows to be cropped. PORTRAIT_DSI uses the authoritative
+    // values from ST's NT35510 component header (V_SYNC=120/V_BP=150/V_FP=150),
+    // matching the ST BSP, embassy-stm32f469i-disco, and Specter DIY reference.
+    // The RGB565 path (init_display_full) continues to use STANDARD_PORTRAIT.
+    let display_timing = display_config_from_timing(
+        nt35510::PANEL_WIDTH,
+        nt35510::PANEL_HEIGHT,
+        nt35510::PanelTiming::PORTRAIT_DSI,
+    );
     let mut dsi_host = init_dsi(
         dsi,
         rcc,
