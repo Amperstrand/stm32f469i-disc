@@ -451,16 +451,22 @@ pub fn init_display_full(
         orientation
     );
 
-    // Step 1: DSI host init
-    let display_timing = LcdController::Nt35510.display_config(orientation);
+    // Use PORTRAIT_DSI timing — STANDARD_PORTRAIT (V_SYNC=1/V_BP=15/V_FP=16) under-blanks
+    // the NT35510 panel in DSI video mode, causing top-row crop and frame wrapping artifacts.
+    // PORTRAIT_DSI uses the authoritative ST NT35510 component header values.
+    let display_timing = display_config_from_timing(
+        nt35510::PANEL_WIDTH,
+        nt35510::PANEL_HEIGHT,
+        nt35510::PanelTiming::PORTRAIT_DSI,
+    );
     let mut dsi_host = init_dsi(
         dsi,
         rcc,
         display_timing,
         ColorCoding::SixteenBitsConfig1,
         27_429.kHz(),
-        64,
-        64,
+        16,
+        0,
     );
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 1: DSI host initialized");
@@ -490,7 +496,11 @@ pub fn init_display_full(
         dma2d,
         None,
         PixelFormat::RGB565,
-        controller.display_config(orientation),
+        display_config_from_timing(
+            nt35510::PANEL_WIDTH,
+            nt35510::PANEL_HEIGHT,
+            nt35510::PanelTiming::PORTRAIT_DSI,
+        ),
         Some(hse_freq),
     );
     #[cfg(feature = "defmt")]

@@ -18,11 +18,9 @@ use board::lcd::{self, DisplayOrientation};
 use board::sdram::{sdram_pins, Sdram};
 
 use embedded_graphics::{
-    mono_font::{ascii::FONT_10X20, MonoTextStyle},
     pixelcolor::Rgb565,
     prelude::*,
-    primitives::{Line, PrimitiveStyle, Rectangle},
-    text::Text,
+    primitives::{PrimitiveStyle, Rectangle},
 };
 
 const W: u16 = 480;
@@ -30,7 +28,7 @@ const H: u16 = 800;
 
 #[entry]
 fn main() -> ! {
-    defmt::info!("ruler: RGB565 column ruler (CONTROL)");
+    defmt::info!("border: RGB565 edge verification");
 
     let dp = Peripherals::take().unwrap();
     let cp = CorePeripherals::take().unwrap();
@@ -81,44 +79,46 @@ fn main() -> ! {
         let mut fb = LtdcFramebuffer::new(buffer, W, H);
         fb.clear(Rgb565::BLACK).ok();
 
-        let white_t = MonoTextStyle::new(&FONT_10X20, Rgb565::WHITE);
-        let black_t = MonoTextStyle::new(&FONT_10X20, Rgb565::BLACK);
+        let white_px = PrimitiveStyle::with_fill(Rgb565::WHITE);
+        let red_px = PrimitiveStyle::with_fill(Rgb565::RED);
+        let one = Size::new(1, 1);
 
-        let stripes: [(i32, u32, Rgb565, &str); 7] = [
-            (0, 80, Rgb565::RED, "0"),
-            (80, 80, Rgb565::GREEN, "80"),
-            (160, 80, Rgb565::BLUE, "160"),
-            (240, 80, Rgb565::YELLOW, "240"),
-            (320, 80, Rgb565::CYAN, "320"),
-            (400, 80, Rgb565::MAGENTA, "400"),
-            (0, 1, Rgb565::WHITE, ""),
-        ];
-
-        for &(x, w, color, label) in &stripes {
-            Rectangle::new(Point::new(x, 40), Size::new(w, (H - 40) as u32))
-                .into_styled(PrimitiveStyle::with_fill(color))
+        for y in 0..H as i32 {
+            Rectangle::new(Point::new(0, y), one)
+                .into_styled(white_px)
                 .draw(&mut fb)
                 .ok();
-            if !label.is_empty() {
-                let t = if color == Rgb565::BLACK {
-                    white_t
-                } else {
-                    black_t
-                };
-                Text::new(label, Point::new(x + w as i32 / 2 - 10, 50), t)
-                    .draw(&mut fb)
-                    .ok();
-            }
+            Rectangle::new(Point::new(1, y), one)
+                .into_styled(red_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(478, y), one)
+                .into_styled(red_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(479, y), one)
+                .into_styled(white_px)
+                .draw(&mut fb)
+                .ok();
         }
-
-        Line::new(Point::new(0, 39), Point::new(W as i32 - 1, 39))
-            .into_styled(PrimitiveStyle::with_stroke(Rgb565::WHITE, 2))
-            .draw(&mut fb)
-            .ok();
-
-        Text::new("RGB565 CONTROL", Point::new(160, 10), white_t)
-            .draw(&mut fb)
-            .ok();
+        for x in 0..W as i32 {
+            Rectangle::new(Point::new(x, 0), one)
+                .into_styled(white_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(x, 1), one)
+                .into_styled(red_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(x, 798), one)
+                .into_styled(red_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(x, 799), one)
+                .into_styled(white_px)
+                .draw(&mut fb)
+                .ok();
+        }
     }
 
     let buffer: &'static mut [u16] = unsafe {
