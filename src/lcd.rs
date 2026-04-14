@@ -620,7 +620,11 @@ pub fn init_display_full_argb8888(
         dma2d,
         None,
         PixelFormat::ARGB8888,
-        controller.display_config(orientation),
+        display_config_from_timing(
+            nt35510::PANEL_WIDTH,
+            nt35510::PANEL_HEIGHT,
+            nt35510::PanelTiming::PORTRAIT_DSI,
+        ),
         Some(hse_freq),
     );
     dsi_host.start();

@@ -84,6 +84,7 @@ fn main() -> ! {
         let white_t = MonoTextStyle::new(&FONT_10X20, Rgb888::WHITE);
         let black_t = MonoTextStyle::new(&FONT_10X20, Rgb888::BLACK);
 
+        // Color stripes for horizontal shift measurement.
         let stripes: [(i32, u32, Rgb888, &str); 7] = [
             (0, 80, Rgb888::RED, "0"),
             (80, 80, Rgb888::GREEN, "80"),
@@ -111,12 +112,77 @@ fn main() -> ! {
             }
         }
 
+        // Rainbow gradient edge at rightmost 10px (x=470..479) — distinct 1px strips
+        // let you count exactly which pixels are visible vs pushed off-screen.
+        let edge_colors: [(i32, Rgb888, &str); 10] = [
+            (470, Rgb888::new(255, 0, 0), "R"),
+            (471, Rgb888::new(0, 255, 0), "G"),
+            (472, Rgb888::new(0, 0, 255), "B"),
+            (473, Rgb888::new(255, 255, 0), "Y"),
+            (474, Rgb888::new(255, 0, 255), "M"),
+            (475, Rgb888::new(0, 255, 255), "C"),
+            (476, Rgb888::new(255, 128, 0), "O"),
+            (477, Rgb888::new(128, 0, 255), "P"),
+            (478, Rgb888::new(255, 255, 255), "W"),
+            (479, Rgb888::new(128, 128, 128), "X"),
+        ];
+        for &(x, color, label) in &edge_colors {
+            Rectangle::new(Point::new(x, 40), Size::new(1, H - 40))
+                .into_styled(PrimitiveStyle::with_fill(color))
+                .draw(&mut fb)
+                .ok();
+            Text::new(label, Point::new(x - 3, 50), white_t)
+                .draw(&mut fb)
+                .ok();
+        }
+
         Line::new(Point::new(0, 39), Point::new(W as i32 - 1, 39))
             .into_styled(PrimitiveStyle::with_stroke(Rgb888::WHITE, 2))
             .draw(&mut fb)
             .ok();
 
-        Text::new("ARGB8888 SHIFT RULER", Point::new(120, 10), white_t)
+        // Alternating white/red 1px border on all 4 edges — white at outer edge,
+        // red at 1px inset. Any cropping is immediately visible.
+        let one_px = PrimitiveStyle::with_fill(Rgb888::WHITE);
+        let one_px_r = PrimitiveStyle::with_fill(Rgb888::RED);
+        for y in 0..H as i32 {
+            Rectangle::new(Point::new(0, y), Size::new(1, 1))
+                .into_styled(one_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(1, y), Size::new(1, 1))
+                .into_styled(one_px_r)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(478, y), Size::new(1, 1))
+                .into_styled(one_px_r)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(479, y), Size::new(1, 1))
+                .into_styled(one_px)
+                .draw(&mut fb)
+                .ok();
+        }
+        for x in 0..W as i32 {
+            Rectangle::new(Point::new(x, 0), Size::new(1, 1))
+                .into_styled(one_px)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(x, 1), Size::new(1, 1))
+                .into_styled(one_px_r)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(x, 798), Size::new(1, 1))
+                .into_styled(one_px_r)
+                .draw(&mut fb)
+                .ok();
+            Rectangle::new(Point::new(x, 799), Size::new(1, 1))
+                .into_styled(one_px)
+                .draw(&mut fb)
+                .ok();
+        }
+
+        Text::new("ARGB8888 BORDER TEST", Point::new(120, 10), white_t)
             .draw(&mut fb)
             .ok();
 
