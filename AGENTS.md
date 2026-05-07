@@ -93,6 +93,25 @@ This repo is a fork of an upstream BSP. Changes intended for upstream stm32-rs/s
 
 See [Amperstrand/micronuts#19](https://github.com/Amperstrand/micronuts/issues/19) for a retrospective on how a confident misdiagnosis wasted upstream maintainer time.
 
+## STM32F469 48MHz Clock Pitfall
+
+**Critical for sync HAL users:** `stm32f4xx-hal`'s `DisplayController::new()` uses `.write()` on PLLSAICFGR, which **destroys PLLSAI_P and PLLSAI_Q dividers**. This zeroes the 48MHz clock source, breaking USB and RNG after display init.
+
+**Fix:** Re-configure PLLSAI after `DisplayController::new()` to restore the dividers, or use embassy BSP which avoids this by configuring PLLSAI through `config.rcc.pllsai`. See Amperstrand/gm65-scanner#47.
+
+**Corrected understanding** (2026-05-07): The 48MHz clock comes from PLLSAI_Q (`divq: DIV8`), not PLLSAI_P. Embassy writes CK48MSEL to DCKCFGR (correct register for F469). DCKCFGR2 does not exist on STM32F469 — the "DCKCFGR2 workaround" was always a no-op. See Amperstrand/embassy-stm32f469i-disco#27 for hardware test evidence.
+
+## Cross-Project Recurring Patterns
+
+These patterns recur across Amperstrand STM32F469 projects (gm65-scanner, micronuts, microfips, specter-diy, both BSPs). See embassy BSP AGENTS.md for full details.
+
+- **USB CDC + probe-rs interference**: Never use `probe-rs run` during USB testing. Use `st-flash`.
+- **FT6X06 phantom touches**: Filter edges with 3px margin. See #17.
+- **DSI reads fail**: Use `ForceNt35510` to skip probe. See #12.
+- **defmt feature leak**: Must gate `defmt` behind feature flag in embassy deps. See #23.
+- **ST-LINK lockout recovery**: `st-flash --connect-under-reset reset`.
+- **memory.x correct values**: STM32F469NIHx = 2048K flash, 320K SRAM (not 384K, not 1024K).
+
 ## Hardware Testing Checklist
 
 Tests that require the STM32F469I-DISCO board connected via ST-Link.
