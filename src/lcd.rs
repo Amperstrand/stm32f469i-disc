@@ -40,6 +40,34 @@ use embedded_hal::delay::DelayNs;
 use nt35510::{Nt35510, PanelTiming};
 use otm8009a::{Otm8009A, Otm8009AConfig};
 
+const PLLSAICFGR_PLLSAIN_MASK: u32 = 0x1FF << 6;
+const PLLSAICFGR_PLLSAIP_MASK: u32 = 0x3 << 16;
+const PLLSAICFGR_PLLSAIQ_MASK: u32 = 0xF << 24;
+const PLLSAICFGR_PLLSAIR_MASK: u32 = 0x7 << 28;
+
+const PLLSAICFGR_PLLSAIN_384: u32 = 384 << 6;
+const PLLSAICFGR_PLLSAIP_DIV8: u32 = 0b11 << 16;
+const PLLSAICFGR_PLLSAIQ_DIV8: u32 = 8 << 24;
+
+fn restore_pllsai_dividers() {
+    let rcc = unsafe { &*crate::hal::pac::RCC::ptr() };
+
+    rcc.pllsaicfgr().modify(|r, w| unsafe {
+        let preserved_pllsair = r.bits() & PLLSAICFGR_PLLSAIR_MASK;
+        let bits = preserved_pllsair
+            | PLLSAICFGR_PLLSAIN_384
+            | PLLSAICFGR_PLLSAIP_DIV8
+            | PLLSAICFGR_PLLSAIQ_DIV8
+            | (r.bits() & !(PLLSAICFGR_PLLSAIN_MASK
+                | PLLSAICFGR_PLLSAIP_MASK
+                | PLLSAICFGR_PLLSAIQ_MASK
+                | PLLSAICFGR_PLLSAIR_MASK));
+        w.bits(bits)
+    });
+
+    cortex_m::asm::delay(100);
+}
+
 /// Panel physical width in pixels (portrait orientation).
 #[deprecated = "Use nt35510::PANEL_WIDTH instead"]
 pub const PANEL_WIDTH: u16 = nt35510::PANEL_WIDTH;
@@ -503,6 +531,7 @@ pub fn init_display_full(
         ),
         Some(hse_freq),
     );
+    restore_pllsai_dividers();
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 3: LTDC initialized");
 
@@ -637,6 +666,7 @@ pub fn init_display_full_argb8888(
         ),
         Some(hse_freq),
     );
+    restore_pllsai_dividers();
     dsi_host.start();
     delay.delay_ms(120);
 
