@@ -58,10 +58,11 @@ fn restore_pllsai_dividers() {
             | PLLSAICFGR_PLLSAIN_384
             | PLLSAICFGR_PLLSAIP_DIV8
             | PLLSAICFGR_PLLSAIQ_DIV8
-            | (r.bits() & !(PLLSAICFGR_PLLSAIN_MASK
-                | PLLSAICFGR_PLLSAIP_MASK
-                | PLLSAICFGR_PLLSAIQ_MASK
-                | PLLSAICFGR_PLLSAIR_MASK));
+            | (r.bits()
+                & !(PLLSAICFGR_PLLSAIN_MASK
+                    | PLLSAICFGR_PLLSAIP_MASK
+                    | PLLSAICFGR_PLLSAIQ_MASK
+                    | PLLSAICFGR_PLLSAIR_MASK));
         w.bits(bits)
     });
 
