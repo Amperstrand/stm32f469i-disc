@@ -46,7 +46,7 @@ optional = true
 git = "https://github.com/Amperstrand/stm32f4xx-hal"
 rev = "4defe541ba408af40b2f496915bd1d53ce8b487e"
 default-features = false
-features = ["stm32f469", "stm32-fmc", "dsihost", "defmt", "sdio-host", "usb_fs"]
+features = ["stm32f469", "stm32-fmc", "dsihost", "sdio-host", "usb_fs"]
 
 [dev-dependencies]
 defmt = "1.0"
@@ -60,7 +60,7 @@ usb-device = "0.3.1"
 usbd-serial = "0.2.0"
 
 [features]
-default = ["defmt"]
+default = []
 defmt = ["dep:defmt", "stm32f4xx-hal/defmt"]
 framebuffer = ["stm32f4xx-hal/framebuffer", "embedded-graphics-core"]
 usb_fs = ["stm32f4xx-hal/usb_fs"]
