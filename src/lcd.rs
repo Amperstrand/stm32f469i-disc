@@ -49,15 +49,14 @@ const PLLSAICFGR_PLLSAIN_384: u32 = 384 << 6;
 const PLLSAICFGR_PLLSAIP_DIV8: u32 = 0b11 << 16;
 const PLLSAICFGR_PLLSAIQ_DIV8: u32 = 8 << 24;
 
-/// Restore PLLSAI dividers after DisplayController::new() overwrites them.
+/// Fix PLLSAI P and Q dividers after DisplayController::new().
 ///
-/// RM0386 §7.3.1: "PLLSAICFGR must not be programmed when PLLSAION=1."
-/// DisplayController::new() enables PLLSAI then modifies PLLSAICFGR via PAC,
-/// violating this constraint. This function properly disables PLLSAI, writes
-/// the correct configuration, and re-enables.
+/// DisplayController::new() uses .write() on PLLSAICFGR which resets P to 0
+/// (reserved, RM0386 §7.3.3) and Q to default. This function preserves the
+/// N and R values that DisplayController::new() calculated for the target
+/// pixel clock, and only fixes P=DIV8 and Q=DIV8.
 ///
-/// Values: N=384, R=7, P=DIV8, Q=DIV8 — LTDC clock = 384/7/2 = 27.429 MHz.
-/// Provenance: specter-diy stm32469i_discovery_lcd.c PLLSAIN=384, PLLSAIR=7.
+/// RM0386 §7.3.1: PLLSAICFGR must not be programmed when PLLSAION=1.
 fn restore_pllsai_dividers() {
     let rcc = unsafe { &*crate::hal::pac::RCC::ptr() };
 
@@ -65,11 +64,10 @@ fn restore_pllsai_dividers() {
     rcc.cr().modify(|_, w| w.pllsaion().off());
     while rcc.cr().read().pllsairdy().is_ready() {}
 
-    // N=384, P=DIV8, Q=DIV8, R=7
+    // Only fix P (from reserved 0 to DIV8) and Q (to DIV8)
+    // PRESERVE N and R from DisplayController::new()
     rcc.pllsaicfgr().modify(|_, w| unsafe {
-        w.pllsain().bits(384)
-         .pllsair().bits(7)
-         .pllsaip().bits(3)
+        w.pllsaip().bits(3)
          .pllsaiq().bits(8)
     });
 
