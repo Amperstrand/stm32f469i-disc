@@ -40,15 +40,6 @@ use embedded_hal::delay::DelayNs;
 use nt35510::{Nt35510, PanelTiming};
 use otm8009a::{Otm8009A, Otm8009AConfig};
 
-const PLLSAICFGR_PLLSAIN_MASK: u32 = 0x1FF << 6;
-const PLLSAICFGR_PLLSAIP_MASK: u32 = 0x3 << 16;
-const PLLSAICFGR_PLLSAIQ_MASK: u32 = 0xF << 24;
-const PLLSAICFGR_PLLSAIR_MASK: u32 = 0x7 << 28;
-
-const PLLSAICFGR_PLLSAIN_384: u32 = 384 << 6;
-const PLLSAICFGR_PLLSAIP_DIV8: u32 = 0b11 << 16;
-const PLLSAICFGR_PLLSAIQ_DIV8: u32 = 8 << 24;
-
 /// Fix PLLSAI P and Q dividers after DisplayController::new().
 ///
 /// DisplayController::new() uses .write() on PLLSAICFGR which resets P to 0
@@ -443,6 +434,10 @@ pub fn init_dsi(
     let mut dsi_host = DsiHost::init(dsi_pll_config, display_config, dsi_config, dsi, rcc).unwrap();
 
     dsi_host.configure_phy_timers(DsiPhyTimers {
+        // RM0386 §19.4.4 CLTCR/DLTCR: D-PHY lane transition timers.
+        // All values in lane byte clock cycles.
+        // Provenance: embassy BSP hs2lp=35, lp2hs=35, stop_wait=10.
+        //              specter-diy ClockLaneHS2LPTime=35, DataLaneLP2HSTime=35.
         dataline_hs2lp: 35,
         dataline_lp2hs: 35,
         clock_hs2lp: 35,
@@ -460,15 +455,16 @@ pub fn init_dsi(
     dsi_host
 }
 
-/// Full display initialization following the proven lcd-test sequence.
+/// Full display initialization for RGB565 mode.
 ///
-/// Handles the complete init sequence in the correct order:
-/// 1. DSI host init
-/// 2. 20ms delay for panel link settle
-/// 3. LCD controller detection
-/// 4. LTDC initialization (before panel init — this is critical)
-/// 5. Panel initialization
-/// 6. Switch DSI to high-speed mode
+/// Sequence (RM0386 + specter-diy + embassy-stm32f469i-disco provenance):
+/// 1. DSI host init (regulator → PLL → D-PHY → video mode config → timing)
+/// 2. LCD controller detection (DSI reads — fails on B08, defaults to NT35510)
+/// 3. LTDC init (PLLSAI config, timing registers, GCR enable)
+/// 4. Fix PLLSAI P+Q dividers (DisplayController::new() resets P to 0/reserved)
+/// 5. DSI host start (CR.EN + WCR.DSIEN) + 120ms link settle
+/// 6. Panel init (NT35510 power sequence + sleep out + display on + backlight)
+/// 7. Switch DSI to high-speed mode
 ///
 /// Returns `(DisplayController, LcdController, DisplayOrientation)`.
 pub fn init_display_full(
