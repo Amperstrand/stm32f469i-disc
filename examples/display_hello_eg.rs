@@ -55,6 +55,9 @@ fn main() -> ! {
     lcd_reset.set_low();
     delay.delay_ms(20u32);
     lcd_reset.set_high();
+    // RM0386 §19.2: LCD reset must be held low ≥10ms, then wait ≥120ms after
+    // deassertion before sending commands. NT35510 datasheet: tRT ≥120ms.
+    // Provenance: embassy-stm32f469i-disco display.rs reset.set_high() + 140ms.
     delay.delay_ms(150u32);
 
     defmt::info!("Initializing SDRAM...");

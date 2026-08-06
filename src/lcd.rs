@@ -49,24 +49,33 @@ const PLLSAICFGR_PLLSAIN_384: u32 = 384 << 6;
 const PLLSAICFGR_PLLSAIP_DIV8: u32 = 0b11 << 16;
 const PLLSAICFGR_PLLSAIQ_DIV8: u32 = 8 << 24;
 
+/// Restore PLLSAI dividers after DisplayController::new() overwrites them.
+///
+/// RM0386 §7.3.1: "PLLSAICFGR must not be programmed when PLLSAION=1."
+/// DisplayController::new() enables PLLSAI then modifies PLLSAICFGR via PAC,
+/// violating this constraint. This function properly disables PLLSAI, writes
+/// the correct configuration, and re-enables.
+///
+/// Values: N=384, R=7, P=DIV8, Q=DIV8 — LTDC clock = 384/7/2 = 27.429 MHz.
+/// Provenance: specter-diy stm32469i_discovery_lcd.c PLLSAIN=384, PLLSAIR=7.
 fn restore_pllsai_dividers() {
     let rcc = unsafe { &*crate::hal::pac::RCC::ptr() };
 
-    rcc.pllsaicfgr().modify(|r, w| unsafe {
-        let preserved_pllsair = r.bits() & PLLSAICFGR_PLLSAIR_MASK;
-        let bits = preserved_pllsair
-            | PLLSAICFGR_PLLSAIN_384
-            | PLLSAICFGR_PLLSAIP_DIV8
-            | PLLSAICFGR_PLLSAIQ_DIV8
-            | (r.bits()
-                & !(PLLSAICFGR_PLLSAIN_MASK
-                    | PLLSAICFGR_PLLSAIP_MASK
-                    | PLLSAICFGR_PLLSAIQ_MASK
-                    | PLLSAICFGR_PLLSAIR_MASK));
-        w.bits(bits)
+    // Disable PLLSAI before modifying configuration (RM0386 §7.3.1)
+    rcc.cr().modify(|_, w| w.pllsaion().off());
+    while rcc.cr().read().pllsairdy().is_ready() {}
+
+    // N=384, P=DIV8, Q=DIV8, R=7
+    rcc.pllsaicfgr().modify(|_, w| unsafe {
+        w.pllsain().bits(384)
+         .pllsair().bits(7)
+         .pllsaip().bits(3)
+         .pllsaiq().bits(8)
     });
 
-    cortex_m::asm::delay(100);
+    // Re-enable PLLSAI and wait for lock
+    rcc.cr().modify(|_, w| w.pllsaion().on());
+    while rcc.cr().read().pllsairdy().is_not_ready() {}
 }
 
 /// Panel physical width in pixels (portrait orientation).
@@ -540,10 +549,10 @@ pub fn init_display_full(
     dsi_host.start();
 
     // Wait 120ms for DSI link to stabilize before sending panel commands.
-    // Matches the proven-working Embassy BSP timing (embassy-stm32f469i-disco).
-    // Without this delay, DSI commands sent to the NT35510 panel silently fail
-    // (DSI video-mode writes are fire-and-forget — no acknowledgment), resulting
-    // in a black screen even though init returns Ok.
+    // RM0386 §19.3.2: DSI PHY requires stabilization time after host enable.
+    // Provenance: embassy-stm32f469i-disco display.rs block_for(120ms) after dsi.enable().
+    // Without this delay, NT35510 DCS commands silently fail (video-mode writes are
+    // fire-and-forget), resulting in a black screen even though init returns Ok.
     delay.delay_ms(120);
 
     // Step 5: Set command mode and init panel
