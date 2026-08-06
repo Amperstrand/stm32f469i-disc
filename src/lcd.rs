@@ -539,6 +539,13 @@ pub fn init_display_full(
     // Start DSI (host + wrapper) AFTER LTDC — ST BSP ordering.
     dsi_host.start();
 
+    // Wait 120ms for DSI link to stabilize before sending panel commands.
+    // Matches the proven-working Embassy BSP timing (embassy-stm32f469i-disco).
+    // Without this delay, DSI commands sent to the NT35510 panel silently fail
+    // (DSI video-mode writes are fire-and-forget — no acknowledgment), resulting
+    // in a black screen even though init returns Ok.
+    delay.delay_ms(120);
+
     // Step 5: Set command mode and init panel
     #[cfg(feature = "defmt")]
     defmt::info!("[init_display_full] step 4: setting DSI command mode (low-power RX)");

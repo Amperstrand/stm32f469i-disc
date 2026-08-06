@@ -55,7 +55,7 @@ fn main() -> ! {
     lcd_reset.set_low();
     delay.delay_ms(20u32);
     lcd_reset.set_high();
-    delay.delay_ms(10u32);
+    delay.delay_ms(150u32);
 
     defmt::info!("Initializing SDRAM...");
     let sdram = Sdram::new(
