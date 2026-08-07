@@ -431,7 +431,7 @@ pub fn init_dsi(
 
     #[cfg(feature = "defmt")]
     defmt::info!("Initializing DSI...");
-    let mut dsi_host = DsiHost::init(dsi_pll_config, display_config, dsi_config, dsi, rcc).unwrap();
+    let mut dsi_host = DsiHost::init(dsi_pll_config, display_config, dsi_config, dsi, rcc).expect("DSI host init failed");
 
     dsi_host.configure_phy_timers(DsiPhyTimers {
         // RM0386 §19.4.4 CLTCR/DLTCR: D-PHY lane transition timers.
@@ -453,6 +453,14 @@ pub fn init_dsi(
     dsi_host.enable_bus_turn_around();
 
     dsi_host
+}
+
+
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DisplayInitError {
+    DsiHostInit,
+    PanelInit,
 }
 
 /// Full display initialization with configurable pixel format.
@@ -477,11 +485,14 @@ pub fn init_display<T: crate::hal::ltdc::SupportedWord>(
     color_coding: ColorCoding,
     pixel_format: PixelFormat,
     log_prefix: &str,
-) -> (
-    crate::hal::ltdc::DisplayController<T>,
-    LcdController,
-    DisplayOrientation,
-) {
+) -> Result<
+    (
+        crate::hal::ltdc::DisplayController<T>,
+        LcdController,
+        DisplayOrientation,
+    ),
+    DisplayInitError,
+> {
     use crate::hal::ltdc::SupportedWord;
 
     #[cfg(feature = "defmt")]
@@ -580,7 +591,7 @@ pub fn init_display<T: crate::hal::ltdc::SupportedWord>(
                             rows: nt35510::PANEL_HEIGHT,
                         },
                     )
-                    .unwrap();
+                    .map_err(|_| DisplayInitError::PanelInit)?;
             }
             #[cfg(feature = "defmt")]
             defmt::info!("[{}] step 5: NT35510 init complete", log_prefix);
@@ -596,7 +607,7 @@ pub fn init_display<T: crate::hal::ltdc::SupportedWord>(
                 rows: nt35510::PANEL_HEIGHT,
             };
             let mut otm = Otm8009A::new();
-            otm.init(&mut dsi_host, otm_config, delay).unwrap();
+            otm.init(&mut dsi_host, otm_config, delay).map_err(|_| DisplayInitError::PanelInit)?;
             #[cfg(feature = "defmt")]
             defmt::info!("[{}] step 5: OTM8009A init complete", log_prefix);
         }
@@ -608,7 +619,7 @@ pub fn init_display<T: crate::hal::ltdc::SupportedWord>(
     #[cfg(feature = "defmt")]
     defmt::info!("[{}] step 6: DSI in high-speed mode, controller={:?}", log_prefix, controller);
 
-    (display_ctrl, controller, orientation)
+    Ok((display_ctrl, controller, orientation))
 }
 
 /// Initialize display in RGB565 mode (16-bit, 2 bytes/pixel).
@@ -632,6 +643,7 @@ pub fn init_display_full(
         PixelFormat::RGB565,
         "init_display_full",
     )
+    .expect("display init failed")
 }
 
 /// Initialize display in ARGB8888 mode (32-bit, 4 bytes/pixel).
@@ -655,6 +667,7 @@ pub fn init_display_full_argb8888(
         PixelFormat::ARGB8888,
         "init_display_full_argb8888",
     )
+    .expect("display init failed")
 }
 
 #[cfg(feature = "framebuffer")]
