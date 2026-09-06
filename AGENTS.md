@@ -145,3 +145,14 @@ Runs: test_led, test_sdram, test_gpio, test_uart, test_timers, test_dma, test_lc
 5. Or use: `scripts/usb_test.sh`
 
 **Why not probe-rs for USB?** probe-rs halts the CPU periodically for RTT reads, breaking USB timing. The USB test must run standalone with no debug probe interference.
+
+## External posting (owner directive 2026-09-06 — CHANNEL rule)
+
+Agents never post on non-member repos — no `gh` writes (issues, PRs,
+comments, reviews, gists), not even with per-text owner sign-off; the
+owner does the copy-paste into GitHub themselves. Member orgs (verify:
+`gh api user/orgs`; 2026-09-06: Amperstrand, OpenTollGate, net4sats,
+FreedomTechFeed) keep the existing owner-gate flow. Read the target
+repo CONTRIBUTING/AI policy before drafting anything upstream.
+Canonical text: lightning-playground AGENTS.md (standing rule UPDATE
+2026-09-06).
